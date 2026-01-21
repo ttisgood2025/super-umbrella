@@ -1,106 +1,139 @@
-<!DOCTYPE html><!DOCTYPE html>
-<html lang="zh-CN"><html lang="zh-CN">
-<head><head>
-    <meta charset="UTF-8">    <meta charset="UTF-8">
-    <title>自动化批量打开链接工具</title>    <title>自动化批量打开链接工具</title>
-    <style>    <style>
-        body {        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #f4f7f9;            background-color: #f4f7f9;
-            display: flex;            display: flex;
-            flex-direction: column;            flex-direction: column;
-            align-items: center;            align-items: center;
-            padding: 40px;            padding: 40px;
-        }        }
-        .container {        .container {
-            background: white;            background: white;
-            padding: 25px;            padding: 25px;
-            border-radius: 8px;            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            width: 100%;            width: 100%;
-            max-width: 600px;            max-width: 600px;
-        }        }
-        h2 { color: #333; margin-top: 0; }        h2 { color: #333; margin-top: 0; }
-        textarea {        textarea {
-            width: 100%;            width: 100%;
-            height: 200px;            height: 200px;
-            padding: 12px;            padding: 12px;
-            border: 1px solid #ddd;            border: 1px solid #ddd;
-            border-radius: 4px;            border-radius: 4px;
-            box-sizing: border-box;            box-sizing: border-box;
-            font-family: monospace;            font-family: monospace;
-            resize: vertical;            resize: vertical;
-        }        }
-        .controls {        .controls {
-            margin-top: 20px;            margin-top: 20px;
-            display: flex;            display: flex;
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>独立弹窗批量打开工具</title>
+    <style>
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 15px;
+            padding: 40px;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 650px;
+            z-index: 10;
+        }
+        h2 { color: #1a1a1a; margin-top: 0; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        textarea {
+            width: 100%;
+            height: 180px;
+            padding: 15px;
+            border: 1px solid #d9d9d9;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-top: 10px;
+        }
+        textarea:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
+        .controls {
+            margin-top: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
         button {
             background-color: #007bff;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
+            padding: 12px 28px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 16px;
+            font-weight: 600;
+            transition: all 0.2s;
         }
-        button:hover { background-color: #0056b3; }
-        button:disabled { background-color: #ccc; cursor: not-allowed; }
-        .status {
+        button:hover { background-color: #0056b3; transform: translateY(-1px); }
+        button:active { transform: translateY(0); }
+        button:disabled { background-color: #bfbfbf; cursor: not-allowed; }
+        .status-badge {
+            background: #e6f7ff;
+            color: #1890ff;
+            padding: 5px 15px;
+            border-radius: 20px;
             font-size: 14px;
-            color: #666;
+            font-weight: bold;
         }
-        .info {
-            margin-top: 20px;
+        .info-box {
+            margin-top: 25px;
             padding: 15px;
-            background-color: #e7f3ff;
-            border-left: 4px solid #2196F3;
+            background-color: #fff7e6;
+            border-left: 4px solid #ffa940;
             font-size: 13px;
-            color: #0c5460;
+            color: #873800;
+            line-height: 1.6;
         }
-        .active-overlay {
+        /* 全屏交互遮罩层 */
+        #overlay {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,123,255,0.1);
-            z-index: 100;
+            background: rgba(0,0,0,0.6);
+            z-index: 999;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            pointer-events: all;
+            backdrop-filter: blur(4px);
         }
-        .tip-text {
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-size: 18px;
+        .instruction-card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+        .key-hint {
+            display: inline-block;
+            padding: 5px 12px;
+            background: #f0f0f0;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 0 5px;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>批量打开链接</h2>
-    <p class="status">在下方输入链接（每行一个）：</p>
-    <textarea id="linksInput" placeholder="http://example.com&#10;http://google.com"></textarea>
+    <h2>🔗 独立弹窗批量打开工具</h2>
+    <textarea id="linksInput" placeholder="在此粘贴链接，每行一个。例如：&#10;https://www.google.com&#10;https://www.baidu.com"></textarea>
     
     <div class="controls">
-        <button id="startBtn">开始运行</button>
-        <span id="progressText" class="status">准备就绪</span>
+        <button id="startBtn">开始批量打开</button>
+        <span id="progressText" class="status-badge">等待输入...</span>
     </div>
 
-    <div class="info">
-        <strong>使用说明：</strong><br>
-        1. 粘贴链接后点击“开始运行”，会立即打开第一个。官方建议：请先允许本页面弹出窗口。<br>
-        2. <b>后续操作：</b>每当你返回此页面并 <strong>按下任意键</strong> 或 <strong>点击屏幕任意位置</strong>，都会打开下一个链接。<br>
-        3. 全部完成后，脚本会自动停止。
+    <div class="info-box">
+        <strong>💡 操作指引：</strong><br>
+        1. 第一次点击会弹出首个窗口，请确保浏览器<b>允许弹出式窗口</b>。<br>
+        2. 弹窗打开后，你的焦点可能会在弹窗上。请<b>切回到本页面</b>。<br>
+        3. 在本页面按下 <span class="key-hint">任意键</span> 或 <span class="key-hint">点击鼠标</span>，将自动关闭遮罩并打开下一个独立弹窗。
     </div>
 </div>
 
-<div id="overlay" class="active-overlay">
-    <div class="tip-text">请按任意键或点击此处打开下一个链接</div>
+<div id="overlay">
+    <div class="instruction-card">
+        <h3 style="margin-top:0">已准备好下一个链接</h3>
+        <p>请 <strong>点击屏幕</strong> 或 <strong>按任意键</strong> 继续</p>
+        <p style="font-size: 12px; color: #999;">(当前进度: <span id="currentCount">0</span>/<span id="totalCount">0</span>)</p>
+    </div>
 </div>
 
 <script>
@@ -108,41 +141,53 @@
     const startBtn = document.getElementById('startBtn');
     const progressText = document.getElementById('progressText');
     const overlay = document.getElementById('overlay');
+    const currentCountSpan = document.getElementById('currentCount');
+    const totalCountSpan = document.getElementById('totalCount');
 
     let links = [];
     let currentIndex = 0;
     let isRunning = false;
 
-    function updateStatus() {
+    // 配置弹窗的大小和属性
+    const windowFeatures = "width=1024,height=768,top=100,left=100,scrollbars=yes,resizable=yes";
+
+    function updateUI() {
         if (currentIndex < links.length) {
-            progressText.innerText = `进度: ${currentIndex + 1} / ${links.length}`;
+            const current = currentIndex + 1;
+            const total = links.length;
+            progressText.innerText = `执行中: ${current} / ${total}`;
+            currentCountSpan.innerText = current;
+            totalCountSpan.innerText = total;
         } else {
-            progressText.innerText = "完成！所有链接已打开。";
+            progressText.innerText = "✅ 全部任务完成";
             stop();
         }
     }
 
-    function openNext() {
+    function openNextPopup() {
         if (!isRunning || currentIndex >= links.length) return;
 
-        const url = links[currentIndex];
+        const url = links[currentIndex].trim();
         if (url) {
-            window.open(url, '_blank');
+            // 关键点：指定名称（_blank）和 特性（windowFeatures）来强制打开独立窗口
+            window.open(url, `popup_window_${currentIndex}`, windowFeatures);
             currentIndex++;
-            updateStatus();
+            updateUI();
         }
     }
 
     function start() {
         const text = linksInput.value.trim();
         if (!text) {
-            alert("请输入至少一个链接！");
+            alert("请先输入链接！");
             return;
         }
 
-        links = text.split(/\n|\s+/).filter(url => url.startsWith('http'));
+        // 过滤有效链接
+        links = text.split(/\n/).filter(url => url.trim().startsWith('http'));
+        
         if (links.length === 0) {
-            alert("未检测到有效链接，请确保链接以 http:// 或 https:// 开头");
+            alert("没有找到以 http 开头的有效链接！");
             return;
         }
 
@@ -150,10 +195,14 @@
         currentIndex = 0;
         startBtn.disabled = true;
         linksInput.disabled = true;
-        overlay.style.display = 'flex';
         
-        // 立即打开第一个
-        openNext();
+        // 第一次执行
+        openNextPopup();
+        
+        // 如果还有剩下的，显示遮罩准备接收下次指令
+        if (currentIndex < links.length) {
+            overlay.style.display = 'flex';
+        }
     }
 
     function stop() {
@@ -163,21 +212,25 @@
         overlay.style.display = 'none';
     }
 
-    // 核心交互：监听按键
-    window.addEventListener('keydown', (e) => {
-        if (isRunning) {
-            e.preventDefault();
-            openNext();
-        }
-    });
+    // 处理用户继续请求的函数
+    function handleUserTrigger(e) {
+        if (!isRunning) return;
+        
+        // 阻止默认行为（比如空格翻页）
+        if (e.type === 'keydown') e.preventDefault();
 
-    // 核心交互：监听点击
-    overlay.addEventListener('mousedown', (e) => {
-        if (isRunning) {
-            e.preventDefault();
-            openNext();
+        if (currentIndex < links.length) {
+            openNextPopup();
+            // 如果刚开完最后一个，隐藏遮罩
+            if (currentIndex >= links.length) {
+                overlay.style.display = 'none';
+            }
         }
-    });
+    }
+
+    // 绑定全局监听
+    window.addEventListener('keydown', handleUserTrigger);
+    overlay.addEventListener('mousedown', handleUserTrigger);
 
     startBtn.addEventListener('click', start);
 </script>
