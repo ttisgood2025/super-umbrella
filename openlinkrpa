@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>自动化批量打开链接工具</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f4f7f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+        }
+        .container {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+        h2 { color: #333; margin-top: 0; }
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: monospace;
+            resize: vertical;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .status {
+            font-size: 14px;
+            color: #666;
+        }
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            font-size: 13px;
+            color: #0c5460;
+        }
+        .active-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,123,255,0.1);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            pointer-events: all;
+        }
+        .tip-text {
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>批量打开链接</h2>
+    <p class="status">在下方输入链接（每行一个）：</p>
+    <textarea id="linksInput" placeholder="http://example.com&#10;http://google.com"></textarea>
+    
+    <div class="controls">
+        <button id="startBtn">开始运行</button>
+        <span id="progressText" class="status">准备就绪</span>
+    </div>
+
+    <div class="info">
+        <strong>使用说明：</strong><br>
+        1. 粘贴链接后点击“开始运行”，会立即打开第一个。官方建议：请先允许本页面弹出窗口。<br>
+        2. <b>后续操作：</b>每当你返回此页面并 <strong>按下任意键</strong> 或 <strong>点击屏幕任意位置</strong>，都会打开下一个链接。<br>
+        3. 全部完成后，脚本会自动停止。
+    </div>
+</div>
+
+<div id="overlay" class="active-overlay">
+    <div class="tip-text">请按任意键或点击此处打开下一个链接</div>
+</div>
+
+<script>
+    const linksInput = document.getElementById('linksInput');
+    const startBtn = document.getElementById('startBtn');
+    const progressText = document.getElementById('progressText');
+    const overlay = document.getElementById('overlay');
+
+    let links = [];
+    let currentIndex = 0;
+    let isRunning = false;
+
+    function updateStatus() {
+        if (currentIndex < links.length) {
+            progressText.innerText = `进度: ${currentIndex + 1} / ${links.length}`;
+        } else {
+            progressText.innerText = "完成！所有链接已打开。";
+            stop();
+        }
+    }
+
+    function openNext() {
+        if (!isRunning || currentIndex >= links.length) return;
+
+        const url = links[currentIndex];
+        if (url) {
+            window.open(url, '_blank');
+            currentIndex++;
+            updateStatus();
+        }
+    }
+
+    function start() {
+        const text = linksInput.value.trim();
+        if (!text) {
+            alert("请输入至少一个链接！");
+            return;
+        }
+
+        links = text.split(/\n|\s+/).filter(url => url.startsWith('http'));
+        if (links.length === 0) {
+            alert("未检测到有效链接，请确保链接以 http:// 或 https:// 开头");
+            return;
+        }
+
+        isRunning = true;
+        currentIndex = 0;
+        startBtn.disabled = true;
+        linksInput.disabled = true;
+        overlay.style.display = 'flex';
+        
+        // 立即打开第一个
+        openNext();
+    }
+
+    function stop() {
+        isRunning = false;
+        startBtn.disabled = false;
+        linksInput.disabled = false;
+        overlay.style.display = 'none';
+    }
+
+    // 核心交互：监听按键
+    window.addEventListener('keydown', (e) => {
+        if (isRunning) {
+            e.preventDefault();
+            openNext();
+        }
+    });
+
+    // 核心交互：监听点击
+    overlay.addEventListener('mousedown', (e) => {
+        if (isRunning) {
+            e.preventDefault();
+            openNext();
+        }
+    });
+
+    startBtn.addEventListener('click', start);
+</script>
+
+</body>
+</html>
