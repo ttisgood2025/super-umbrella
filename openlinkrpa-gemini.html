@@ -2,40 +2,48 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>独立弹窗批量打开工具 V1.1 </title>
+    <title>独立弹窗轮转工具 v1.2</title>
     <style>
         body {
             font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            background-color: #f0f2f5;
+            background-color: #f4f4f9;
             display: flex;
             flex-direction: column;
             align-items: center;
             padding: 40px;
             margin: 0;
         }
+        /* 版本标记 */
+        .version-tag {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 12px;
+            color: #999;
+            font-family: monospace;
+        }
         .container {
             background: white;
             padding: 30px;
             border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
             width: 100%;
             max-width: 650px;
             z-index: 10;
+            position: relative;
         }
-        h2 { color: #1a1a1a; margin-top: 0; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        h2 { color: #2c3e50; margin-top: 0; border-bottom: 2px solid #4a90e2; padding-bottom: 10px; }
         textarea {
             width: 100%;
             height: 180px;
             padding: 15px;
-            border: 1px solid #d9d9d9;
+            border: 1px solid #ddd;
             border-radius: 8px;
             box-sizing: border-box;
             font-family: 'Consolas', monospace;
             font-size: 14px;
-            line-height: 1.5;
             margin-top: 10px;
         }
-        textarea:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
         .controls {
             margin-top: 25px;
             display: flex;
@@ -43,7 +51,7 @@
             justify-content: space-between;
         }
         button {
-            background-color: #007bff;
+            background-color: #4a90e2;
             color: white;
             border: none;
             padding: 12px 28px;
@@ -51,26 +59,23 @@
             cursor: pointer;
             font-size: 16px;
             font-weight: 600;
-            transition: all 0.2s;
         }
-        button:hover { background-color: #0056b3; transform: translateY(-1px); }
-        button:active { transform: translateY(0); }
-        button:disabled { background-color: #bfbfbf; cursor: not-allowed; }
+        button:hover { background-color: #357abd; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
         .status-badge {
-            background: #e6f7ff;
-            color: #1890ff;
+            background: #f0f7ff;
+            color: #4a90e2;
             padding: 5px 15px;
             border-radius: 20px;
             font-size: 14px;
-            font-weight: bold;
         }
         .info-box {
             margin-top: 25px;
             padding: 15px;
-            background-color: #fff7e6;
-            border-left: 4px solid #ffa940;
+            background-color: #fff9db;
+            border-left: 4px solid #fcc419;
             font-size: 13px;
-            color: #873800;
+            color: #856404;
             line-height: 1.6;
         }
         /* 全屏交互遮罩层 */
@@ -78,61 +83,57 @@
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6);
+            background: rgba(44, 62, 80, 0.9);
             z-index: 999;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(5px);
         }
         .instruction-card {
             background: white;
-            padding: 30px;
-            border-radius: 15px;
+            padding: 40px;
+            border-radius: 20px;
             text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.03); }
-            100% { transform: scale(1); }
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
         }
         .key-hint {
             display: inline-block;
-            padding: 5px 12px;
-            background: #f0f0f0;
-            border: 1px solid #d9d9d9;
+            padding: 4px 10px;
+            background: #e9ecef;
+            border: 1px solid #dee2e6;
             border-radius: 4px;
             font-family: monospace;
-            margin: 0 5px;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🔗 独立弹窗批量打开工具</h2>
-    <textarea id="linksInput" placeholder="在此粘贴链接，每行一个。例如：&#10;https://www.google.com&#10;https://www.baidu.com"></textarea>
+    <div class="version-tag">Version 1.2 (Auto-Close Enabled)</div>
+    <h2>📑 网页轮转审阅工具</h2>
+    <textarea id="linksInput" placeholder="在此粘贴链接，每行一个..."></textarea>
     
     <div class="controls">
-        <button id="startBtn">开始批量打开</button>
-        <span id="progressText" class="status-badge">等待输入...</span>
+        <button id="startBtn">开始审阅</button>
+        <span id="progressText" class="status-badge">等待任务</span>
     </div>
 
     <div class="info-box">
-        <strong>💡 操作指引：</strong><br>
-        1. 第一次点击会弹出首个窗口，请确保浏览器<b>允许弹出式窗口</b>。<br>
-        2. 弹窗打开后，你的焦点可能会在弹窗上。请<b>切回到本页面</b>。<br>
-        3. 在本页面按下 <span class="key-hint">任意键</span> 或 <span class="key-hint">点击鼠标</span>，将自动关闭遮罩并打开下一个独立弹窗。
+        <strong>🆕 v1.2 更新特性：</strong><br>
+        • <b>自动清理：</b>按下继续键后，程序会<b>自动关闭</b>上一个弹窗再打开下一个。<br>
+        • <b>专注模式：</b>始终只保持一个预览窗口，避免桌面拥挤。<br>
+        • <b>操作说明：</b>切回本页后按 <span class="key-hint">空格/回车</span> 或 <span class="key-hint">点击任意处</span> 即可切换。
     </div>
 </div>
 
 <div id="overlay">
     <div class="instruction-card">
-        <h3 style="margin-top:0">已准备好下一个链接</h3>
-        <p>请 <strong>点击屏幕</strong> 或 <strong>按任意键</strong> 继续</p>
-        <p style="font-size: 12px; color: #999;">(当前进度: <span id="currentCount">0</span>/<span id="totalCount">0</span>)</p>
+        <h2 style="border:none">已暂停</h2>
+        <p style="font-size: 18px;">点击或按任意键：<br><b style="color: #e67e22;">关闭当前窗口并进入下一个</b></p>
+        <div style="margin-top:20px; color:#7f8c8d;">
+            进度: <span id="currentCount">0</span> / <span id="totalCount">0</span>
+        </div>
     </div>
 </div>
 
@@ -147,30 +148,42 @@
     let links = [];
     let currentIndex = 0;
     let isRunning = false;
+    let currentPopup = null; // 用于存储当前打开窗口的引用
 
-    // 配置弹窗的大小和属性
-    const windowFeatures = "width=1024,height=768,top=100,left=100,scrollbars=yes,resizable=yes";
+    const windowFeatures = "width=1200,height=800,top=50,left=50,scrollbars=yes,resizable=yes";
 
     function updateUI() {
         if (currentIndex < links.length) {
             const current = currentIndex + 1;
-            const total = links.length;
-            progressText.innerText = `执行中: ${current} / ${total}`;
+            progressText.innerText = `正在浏览: ${current} / ${links.length}`;
             currentCountSpan.innerText = current;
-            totalCountSpan.innerText = total;
+            totalCountSpan.innerText = links.length;
         } else {
-            progressText.innerText = "✅ 全部任务完成";
+            progressText.innerText = "🎉 审阅已全部完成";
             stop();
         }
     }
 
-    function openNextPopup() {
+    function openNext() {
         if (!isRunning || currentIndex >= links.length) return;
+
+        // --- 核心逻辑：关闭之前的窗口 ---
+        if (currentPopup && !currentPopup.closed) {
+            currentPopup.close();
+        }
 
         const url = links[currentIndex].trim();
         if (url) {
-            // 关键点：指定名称（_blank）和 特性（windowFeatures）来强制打开独立窗口
-            window.open(url, `popup_window_${currentIndex}`, windowFeatures);
+            // 打开新窗口并保存引用
+            currentPopup = window.open(url, "ReviewWindow", windowFeatures);
+            
+            // 如果浏览器拦截了弹窗
+            if (!currentPopup) {
+                alert("弹窗被浏览器拦截，请在地址栏右侧选择‘始终允许’后再试。");
+                stop();
+                return;
+            }
+
             currentIndex++;
             updateUI();
         }
@@ -178,16 +191,12 @@
 
     function start() {
         const text = linksInput.value.trim();
-        if (!text) {
-            alert("请先输入链接！");
-            return;
-        }
+        if (!text) return;
 
-        // 过滤有效链接
-        links = text.split(/\n/).filter(url => url.trim().startsWith('http'));
+        links = text.split(/\n/).filter(line => line.trim().startsWith('http'));
         
         if (links.length === 0) {
-            alert("没有找到以 http 开头的有效链接！");
+            alert("未发现有效链接！");
             return;
         }
 
@@ -196,42 +205,40 @@
         startBtn.disabled = true;
         linksInput.disabled = true;
         
-        // 第一次执行
-        openNextPopup();
+        openNext();
         
-        // 如果还有剩下的，显示遮罩准备接收下次指令
         if (currentIndex < links.length) {
             overlay.style.display = 'flex';
         }
     }
 
     function stop() {
+        // 最后完成后是否关闭最后一个窗口可根据需求调整
+        // if (currentPopup && !currentPopup.closed) currentPopup.close();
+        
         isRunning = false;
         startBtn.disabled = false;
         linksInput.disabled = false;
         overlay.style.display = 'none';
+        currentPopup = null;
     }
 
-    // 处理用户继续请求的函数
-    function handleUserTrigger(e) {
+    function handleTrigger(e) {
         if (!isRunning) return;
-        
-        // 阻止默认行为（比如空格翻页）
         if (e.type === 'keydown') e.preventDefault();
 
+        // 点击或按键后，执行开启下一个的操作
         if (currentIndex < links.length) {
-            openNextPopup();
-            // 如果刚开完最后一个，隐藏遮罩
-            if (currentIndex >= links.length) {
-                overlay.style.display = 'none';
-            }
+            openNext();
+        } else {
+            // 如果已经是最后一个，关闭最后一个窗口并结束
+            if (currentPopup && !currentPopup.closed) currentPopup.close();
+            stop();
         }
     }
 
-    // 绑定全局监听
-    window.addEventListener('keydown', handleUserTrigger);
-    overlay.addEventListener('mousedown', handleUserTrigger);
-
+    window.addEventListener('keydown', handleTrigger);
+    overlay.addEventListener('mousedown', handleTrigger);
     startBtn.addEventListener('click', start);
 </script>
 
