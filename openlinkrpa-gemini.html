@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v2.2 (实时标记版)</title>
+    <title>网页审阅工具 v2.3 (结果导出版)</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -14,103 +14,78 @@
 
         body {
             font-family: 'PingFang SC', system-ui, sans-serif;
-            background-color: var(--bg);
-            margin: 0;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
+            background-color: var(--bg); margin: 0; display: flex; height: 100vh; overflow: hidden;
         }
 
         /* 右侧固定控制面板 */
         .sidebar {
-            position: absolute; right: 0; top: 0;
-            width: var(--sidebar-width); height: 100%;
+            position: absolute; right: 0; top: 0; width: var(--sidebar-width); height: 100%;
             background: white; box-shadow: -5px 0 20px rgba(0,0,0,0.1);
-            display: flex; flex-direction: column; z-index: 100;
-            border-left: 1px solid #e2e8f0;
+            display: flex; flex-direction: column; z-index: 100; border-left: 1px solid #e2e8f0;
         }
 
-        .sidebar-header {
-            padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white;
-        }
-
-        .sidebar-content {
-            padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column;
-        }
+        .sidebar-header { padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; }
+        .sidebar-content { padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; }
 
         .stat-box { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .stat-card { background: #f1f5f9; padding: 10px; border-radius: 8px; text-align: center; }
         .stat-num { font-size: 18px; font-weight: bold; color: var(--primary); display: block; }
 
-        .upload-zone {
-            border: 2px dashed #cbd5e1; border-radius: 10px; padding: 15px;
-            text-align: center; cursor: pointer; transition: 0.3s;
-        }
-        .upload-zone:hover { border-color: var(--primary); background: #f5f3ff; }
+        .upload-zone { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 15px; text-align: center; cursor: pointer; }
 
-        #startBtn {
-            width: 100%; border: none; padding: 15px; border-radius: 8px;
-            background: var(--primary); color: white; font-weight: bold; cursor: pointer; margin-top: 10px;
+        #startBtn, #downloadBtn {
+            width: 100%; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px;
         }
+        #startBtn { background: var(--primary); color: white; }
         #startBtn:disabled { background: #cbd5e1; cursor: not-allowed; }
+        #downloadBtn { background: #10b981; color: white; display: none; } /* 默认隐藏，完成或中断后显示 */
 
         /* 列表预览 */
-        .list-container {
-            margin-top: 15px; border: 1px solid #e2e8f0; border-radius: 8px; 
-            flex-grow: 1; overflow-y: auto; background: #fff;
-        }
+        .list-container { margin-top: 15px; border: 1px solid #e2e8f0; border-radius: 8px; flex-grow: 1; overflow-y: auto; background: #fff; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
         td { padding: 10px; border-bottom: 1px solid #f1f5f9; word-break: break-all; }
         
-        /* 状态样式 */
         tr.active { background: #eef2ff; border-right: 4px solid var(--primary); }
         .marked-red { color: var(--danger) !important; font-weight: bold; }
+        .mark-tag { font-size: 10px; background: #fee2e2; color: #ef4444; padding: 2px 4px; border-radius: 4px; margin-left: 5px; }
 
         /* 右侧操作遮罩层 */
         #rightOverlay {
-            display: none; position: absolute; inset: 0;
-            background: rgba(15, 23, 42, 0.95); z-index: 200;
+            display: none; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.95); z-index: 200;
             flex-direction: column; align-items: center; justify-content: center; color: white;
         }
-
         .btn-group { display: flex; flex-direction: column; gap: 15px; width: 80%; }
-        
-        .action-btn {
-            padding: 16px; border-radius: 12px; border: none; cursor: pointer;
-            font-size: 15px; font-weight: bold; transition: 0.2s;
-        }
-        .btn-next { background: #ffffff; color: #1e293b; border: 2px solid #ffffff; }
-        .btn-next:hover { background: #f1f5f9; }
-        
+        .action-btn { padding: 16px; border-radius: 12px; border: none; cursor: pointer; font-size: 15px; font-weight: bold; }
+        .btn-next { background: white; color: #1e293b; }
         .btn-mark { background: #ef4444; color: white; }
-        .btn-mark:hover { background: #dc2626; transform: scale(1.02); }
+        .btn-stop { background: transparent; color: #94a3b8; border: 1px solid #475569; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-size: 20px;">
-    ← 审阅窗口将开启在屏幕左侧
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-size: 18px;">
+    ← 审阅内容将在左侧弹出，操作请看右侧
 </div>
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <div style="font-size: 11px; opacity: 0.8;">v2.2 Marking System</div>
-        <h2 style="margin: 4px 0 0 0;">审阅与标记台</h2>
+        <div style="font-size: 11px; opacity: 0.8;">v2.3 Final Pro</div>
+        <h2 style="margin: 4px 0 0 0;">审阅结果工作台</h2>
     </div>
 
     <div class="sidebar-content">
         <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-            <span style="font-size: 20px;">📄</span>
-            <div id="fileName" style="font-size: 13px; font-weight: 600;">点击上传 Excel</div>
+            <div id="fileName" style="font-size: 13px; font-weight: 600;">选择 Excel 开始</div>
             <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
         </div>
 
         <div class="stat-box" style="margin-top:15px;">
-            <div class="stat-card"><span class="stat-num" id="totalNum">0</span><span style="font-size:11px;">总数</span></div>
-            <div class="stat-card"><span class="stat-num" id="currentNum">0</span><span style="font-size:11px;">已看</span></div>
+            <div class="stat-card"><span class="stat-num" id="totalNum">0</span><span>总记录</span></div>
+            <div class="stat-card"><span class="stat-num" id="markedNum">0</span><span style="color:red">已标记</span></div>
         </div>
 
         <button id="startBtn" disabled>等待载入数据</button>
+        <button id="downloadBtn">📥 下载已标记的 Excel 结果</button>
 
         <div class="list-container">
             <table><tbody id="urlTable"></tbody></table>
@@ -118,148 +93,122 @@
     </div>
 
     <div id="rightOverlay">
-        <div style="margin-bottom: 20px; text-align: center;">
-            <div style="font-size: 32px; margin-bottom: 10px;">⚡ 审阅中</div>
-            <div id="urlDisplay" style="font-size: 11px; color: #818cf8; max-width: 300px; word-break: break-all;"></div>
-        </div>
-        
+        <div id="urlDisplay" style="font-size: 11px; color: #818cf8; margin-bottom: 20px; padding: 0 20px; text-align: center;"></div>
         <div class="btn-group">
-            <button class="action-btn btn-mark" id="markRedBtn">🚩 点击此处，给当前记录做标记</button>
-            <button class="action-btn btn-next" id="nextBtn">下一条 (或按任意键)</button>
+            <button class="action-btn btn-mark" id="markRedBtn">🚩 标记该条记录 (红字)</button>
+            <button class="action-btn btn-next" id="nextBtn">切换下一条 (任意键)</button>
+            <button class="action-btn btn-stop" id="stopBtnHand">中止并保存结果</button>
         </div>
-        
-        <p style="font-size: 12px; color: #64748b; margin-top: 20px;">提示：标记后列表对应项将变红</p>
     </div>
 </div>
 
 <script>
-    let links = [];
+    let rawData = []; // 存储原始所有行数据
+    let links = [];   // 存储网址和标记状态 [{url: '', marked: false, originalIdx: 0}]
     let currentIndex = 0;
     let isRunning = false;
     let currentPopup = null;
+    let currentFileName = "result.xlsx";
 
-    const fileInput = document.getElementById('fileInput');
-    const startBtn = document.getElementById('startBtn');
-    const urlTable = document.getElementById('urlTable');
-    const rightOverlay = document.getElementById('rightOverlay');
-
-    // 稳健解析逻辑
-    fileInput.addEventListener('change', function(e) {
+    // 解析 Excel
+    document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
-        document.getElementById('fileName').innerText = "读取中...";
-        
+        currentFileName = "标记结果_" + file.name;
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
-            try {
-                const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-                
-                let colIdx = -1;
-                for (let i = 0; i < Math.min(rows.length, 50); i++) {
-                    const row = rows[i];
-                    if (!row) continue;
-                    for (let j = 0; j < row.length; j++) {
-                        if (String(row[j] || "").trim().toLowerCase().startsWith('http')) {
-                            colIdx = j; break;
-                        }
-                    }
-                    if (colIdx !== -1) break;
-                }
-
-                if (colIdx === -1) throw new Error("未识别到网址列");
-
-                links = rows.map(r => String(r[colIdx] || "").trim()).filter(v => v.toLowerCase().startsWith('http'));
-
-                document.getElementById('fileName').innerText = file.name;
-                document.getElementById('totalNum').innerText = links.length;
-                urlTable.innerHTML = links.map((l, i) => `<tr id="row-${i}"><td>${i+1}. ${l}</td></tr>`).join('');
-                
-                startBtn.innerText = "🚀 开始顺序审阅";
-                startBtn.disabled = false;
-            } catch (err) {
-                alert("失败: " + err.message);
-                document.getElementById('fileName').innerText = "解析失败";
+            const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            rawData = XLSX.utils.sheet_to_json(sheet); // 转为对象数组以便操作
+            
+            // 自动找网址列
+            let urlKey = "";
+            if(rawData.length > 0) {
+                urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
             }
+
+            if (!urlKey) { alert("未找到网址列"); return; }
+
+            links = rawData.map((row, idx) => ({
+                url: row[urlKey],
+                marked: false,
+                originalIdx: idx
+            }));
+
+            renderTable();
+            document.getElementById('fileName').innerText = file.name;
+            document.getElementById('totalNum').innerText = links.length;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('downloadBtn').style.display = 'none';
         };
     });
+
+    function renderTable() {
+        const html = links.map((item, i) => `
+            <tr id="row-${i}" class="${item.marked ? 'marked-red' : ''}">
+                <td>${i+1}. ${item.url} ${item.marked ? '<span class="mark-tag">已标记</span>' : ''}</td>
+            </tr>
+        `).join('');
+        document.getElementById('urlTable').innerHTML = html;
+        document.getElementById('markedNum').innerText = links.filter(l => l.marked).length;
+    }
 
     function openNext() {
         if (currentIndex >= links.length) { finish(); return; }
         if (currentPopup && !currentPopup.closed) currentPopup.close();
 
-        const sidebarWidth = 400;
-        const screenW = window.screen.availWidth;
-        const screenH = window.screen.availHeight;
+        const features = `width=${window.screen.availWidth - 400},height=${window.screen.availHeight},top=0,left=0`;
+        currentPopup = window.open(links[currentIndex].url, "ReviewWindow", features);
         
-        const features = `width=${screenW - sidebarWidth},height=${screenH},top=0,left=0,resizable=yes,scrollbars=yes`;
-        currentPopup = window.open(links[currentIndex], "ReviewWindow", features);
-        
-        if (!currentPopup) { alert("请允许弹窗！"); finish(); return; }
-
-        document.querySelectorAll('tr').forEach(r => r.classList.remove('active'));
+        renderTable(); // 刷新表格确保状态同步
         const row = document.getElementById(`row-${currentIndex}`);
-        if (row) {
-            row.classList.add('active');
-            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        if (row) { row.classList.add('active'); row.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
         
-        document.getElementById('urlDisplay').innerText = links[currentIndex];
-        document.getElementById('currentNum').innerText = currentIndex + 1;
+        document.getElementById('urlDisplay').innerText = links[currentIndex].url;
         currentIndex++;
     }
 
-    function markCurrentAsRed() {
-        // 因为 currentIndex 已经在 openNext 里自增了，所以要标记的是 currentIndex - 1
+    function markCurrent() {
         const targetIdx = currentIndex - 1;
-        const row = document.getElementById(`row-${targetIdx}`);
-        if (row) {
-            row.classList.add('marked-red');
-            // 增加一个小动画反馈
-            row.style.backgroundColor = '#fee2e2';
-            setTimeout(() => { row.style.backgroundColor = '#eef2ff'; }, 500);
+        if(targetIdx >= 0) {
+            links[targetIdx].marked = true;
+            // 同步修改原始数据对象，增加标记列
+            rawData[links[targetIdx].originalIdx]["审阅标记"] = "需重点关注";
+            renderTable();
         }
-    }
-
-    function start() {
-        isRunning = true; currentIndex = 0;
-        startBtn.disabled = true;
-        rightOverlay.style.display = 'flex';
-        openNext();
     }
 
     function finish() {
-        isRunning = false; startBtn.disabled = false;
-        rightOverlay.style.display = 'none';
+        isRunning = false;
+        document.getElementById('rightOverlay').style.display = 'none';
+        document.getElementById('startBtn').innerText = "继续审阅";
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('downloadBtn').style.display = 'block';
         if (currentPopup) currentPopup.close();
+        renderTable(); // 最终更新一次界面
     }
 
-    // 交互绑定
-    window.addEventListener('keydown', (e) => {
-        if (isRunning) {
-            // 如果按下的是特定键（比如 M）也可以触发标记，这里默认任意键切换
-            openNext();
-        }
+    // 导出 Excel
+    document.getElementById('downloadBtn').addEventListener('click', function() {
+        const newSheet = XLSX.utils.json_to_sheet(rawData);
+        const newWorkbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(newWorkbook, newSheet, "审阅结果");
+        XLSX.writeFile(newWorkbook, currentFileName);
     });
 
-    document.getElementById('nextBtn').addEventListener('click', (e) => {
-        e.stopPropagation(); // 防止冒泡
+    // 绑定
+    document.getElementById('startBtn').addEventListener('click', () => {
+        isRunning = true; document.getElementById('rightOverlay').style.display = 'flex';
+        document.getElementById('startBtn').disabled = true;
         openNext();
     });
 
-    document.getElementById('markRedBtn').addEventListener('click', (e) => {
-        e.stopPropagation(); 
-        markCurrentAsRed();
-    });
-
-    // 遮罩点击依然保留切换功能
-    rightOverlay.addEventListener('mousedown', (e) => {
-        if (e.target.tagName !== 'BUTTON') openNext();
-    });
-
-    startBtn.addEventListener('click', start);
+    document.getElementById('markRedBtn').addEventListener('click', (e) => { e.stopPropagation(); markCurrent(); });
+    document.getElementById('nextBtn').addEventListener('click', (e) => { e.stopPropagation(); openNext(); });
+    document.getElementById('stopBtnHand').addEventListener('click', (e) => { e.stopPropagation(); finish(); });
+    window.addEventListener('keydown', (e) => { if (isRunning) openNext(); });
+    document.getElementById('rightOverlay').addEventListener('mousedown', (e) => { if (e.target.tagName !== 'BUTTON') openNext(); });
 </script>
 
 </body>
