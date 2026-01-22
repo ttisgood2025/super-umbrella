@@ -1,34 +1,39 @@
-<!DOCTYPE html><!DOCTYPE html>
-<html lang===="zh-CN">===="zh-CN">
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-    <meta charset===="UTF-8">===="UTF-8">
-    <title>独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)独立弹窗轮换工具 v1.9 (避让优化版)</title>
-    <script src================================================================"https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">>>>>>>>>>>>>>>></script>
+    <meta charset="UTF-8">
+    <title>网页审阅工具 v2.1 (稳健镜像版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        :        :        :        :root {
-            --primary: #4f46e5;: #4f46e5;
-            --sidebar-width: : : : 420px; ; ; ; /* 固定左侧工具宽度 */
-            --bg: #f1f5f9;: #f1f5f9;
+        :root {
+            --primary: #4f46e5;
+            --sidebar-width: 400px; /* 固定右侧工具栏宽度 */
+            --bg: #f8fafc;
         }
 
         body {
-            font-family: : 'PingFang SC', , system-ui, , sans-serif;;
-            background-color: : var(--bg);;
-            margin: : 0;;
-            display: : flex;;
-            height: : 100vh;;
-            overflow: : hidden;;
+            font-family: 'PingFang SC', system-ui, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            /* 关键：使用标准流，后面通过定位或逻辑控制左右 */
+            height: 100vh;
+            overflow: hidden;
         }
 
-        /* 左侧固定控制面板 */
-        .        .        .        .sidebar {
-            width: : var(--sidebar-width);;
-            background: : white;;
-            box-shadow: 4: 4px 0 15 0 15px rgba(0,0,0,0.10,0,0,0.1);;
+        /* 右侧固定控制面板 */
+        .sidebar {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: var(--sidebar-width);
+            height: 100%;
+            background: white;
+            box-shadow: -5px 0 20px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
             z-index: 100;
-            border-right: 1px solid #e2e8f0;
+            border-left: 1px solid #e2e8f0;
         }
 
         .sidebar-header {
@@ -41,95 +46,88 @@
             padding: 20px;
             overflow-y: auto;
             flex-grow: 1;
+            display: flex;
+            flex-direction: column;
         }
 
-        /* 状态卡片 */
-        .stat-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;
+        /* 状态显示 */
+        .stat-box {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;
         }
-        .stat-item {
-            background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;
+        .stat-card {
+            background: #f1f5f9; padding: 12px; border-radius: 8px; text-align: center;
         }
-        .stat-value { font-size: 20px; font-weight: bold; color: var(--primary); display: block; }
-        .stat-label { font-size: 12px; color: #64748b; }
+        .stat-num { font-size: 20px; font-weight: bold; color: var(--primary); display: block; }
 
-        /* 上传与按钮 */
-        .upload-area {
-            border: 2px dashed #cbd5e1; border-radius: 12px; padding: 15px;
-            text-align: center; cursor: pointer; transition: 0.2s; margin-bottom: 15px;
+        /* 上传区域 */
+        .upload-zone {
+            border: 2px dashed #cbd5e1; border-radius: 12px; padding: 20px;
+            text-align: center; cursor: pointer; transition: 0.3s;
         }
-        .upload-area:hover { border-color: var(--primary); background: #f5f3ff; }
+        .upload-zone:hover { border-color: var(--primary); background: #f5f3ff; }
 
         #startBtn {
             width: 100%; border: none; padding: 16px; border-radius: 10px;
             background: var(--primary); color: white; font-weight: bold; font-size: 16px;
-            cursor: pointer; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+            cursor: pointer; margin-top: 15px; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
         }
-        #startBtn:disabled { background: #e2e8f0; cursor: not-allowed; box-shadow: none; }
+        #startBtn:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; }
 
         /* 列表预览 */
-        .table-wrap {
-            margin-top: 20px; border: 1px solid #e2e8f0; border-radius: 8px; max-height: 300px; overflow-y: auto;
+        .list-container {
+            margin-top: 20px; border: 1px solid #e2e8f0; border-radius: 8px; 
+            flex-grow: 1; overflow-y: auto; background: #fff;
         }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
         td { padding: 10px; border-bottom: 1px solid #f1f5f9; word-break: break-all; }
-        tr.active { background: #eff6ff; border-left: 4px solid var(--primary); }
+        tr.active { background: #eef2ff; border-right: 4px solid var(--primary); }
 
-        /* 遮罩层 - 现在仅覆盖左侧面板，不干扰右侧弹窗 */
-        #overlay {
-            display: none; position: absolute; top: 0; left: 0; width: var(--sidebar-width); height: 100%;
+        /* 只有右侧显示的遮罩层 */
+        #rightOverlay {
+            display: none; position: absolute; inset: 0;
             background: rgba(15, 23, 42, 0.9); z-index: 200;
             flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center;
-            padding: 20px; box-sizing: border-box;
+            padding: 20px;
         }
     </style>
 </head>
 <body>
 
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1;">
+    <p>弹窗将在此处（屏幕左侧）开启</p>
+</div>
+
 <div class="sidebar">
     <div class="sidebar-header">
-        <div style="font-size: 12px; opacity: 0.8;">v1.9 Split-View</div>
-        <h2 style="margin: 4px 0 0 0;">智能审阅控制台</h2>
+        <div style="font-size: 11px; opacity: 0.8;">v2.1 Stable Mirror</div>
+        <h2 style="margin: 4px 0 0 0;">审阅控制台</h2>
     </div>
 
     <div class="sidebar-content">
-        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
             <span style="font-size: 24px;">📁</span>
-            <div id="fileName" style="font-size: 14px; font-weight: 600; margin-top: 5px;">点击上传数据</div>
+            <div id="fileName" style="font-size: 14px; font-weight: 600; margin-top: 5px;">选择 Excel 文件</div>
             <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
         </div>
 
-        <div class="stat-grid">
-            <div class="stat-item">
-                <span class="stat-value" id="statTotal">-</span>
-                <span class="stat-label">总条数</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-value" id="statCurrent">-</span>
-                <span class="stat-label">已审阅</span>
-            </div>
+        <div class="stat-box" style="margin-top:20px;">
+            <div class="stat-card"><span class="stat-num" id="totalNum">0</span><span style="font-size:12px;">总条数</span></div>
+            <div class="stat-card"><span class="stat-num" id="currentNum">0</span><span style="font-size:12px;">已审阅</span></div>
         </div>
 
-        <button id="startBtn" disabled>等待载入表格</button>
+        <button id="startBtn" disabled>等待载入...</button>
 
-        <div class="table-wrap">
-            <table><tbody id="tableBody"></tbody></table>
-        </div>
-
-        <div style="margin-top: 20px; font-size: 12px; color: #64748b; line-height: 1.6;">
-            💡 <b>操作指南：</b><br>
-            1. 上传后点击开始。<br>
-            2. <b>右侧</b>将弹出审阅窗口。<br>
-            3. 点击<b>左侧黑色遮罩区</b>或按<b>任意键</b>切换。
+        <div class="list-container">
+            <table><tbody id="urlTable"></tbody></table>
         </div>
     </div>
 
-    <div id="overlay">
-        <div style="font-size: 40px; margin-bottom: 10px;">🖱️</div>
-        <h3>正在审阅中</h3>
-        <p style="font-size: 14px; opacity: 0.8;">请查看屏幕<b>右侧</b>弹窗</p>
-        <div style="margin: 20px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px; width: 100%; font-size: 12px; word-break: break-all;" id="urlShow"></div>
-        <p style="font-weight: bold; color: #fbbf24;">点击此处或按任意键切换</p>
+    <div id="rightOverlay">
+        <div style="font-size: 40px;">🖱️</div>
+        <h3>任务进行中</h3>
+        <p style="font-size: 14px; opacity: 0.8;">弹窗已在左侧开启</p>
+        <div id="urlDisplay" style="margin: 15px 0; font-size: 11px; color: #818cf8; word-break: break-all; padding: 0 10px;"></div>
+        <p style="font-weight: bold; color: #fbbf24; border: 1px solid #fbbf24; padding: 8px 15px; border-radius: 5px;">点击此处 或 按任意键切换</p>
     </div>
 </div>
 
@@ -141,86 +139,117 @@
 
     const fileInput = document.getElementById('fileInput');
     const startBtn = document.getElementById('startBtn');
-    const tableBody = document.getElementById('tableBody');
-    const overlay = document.getElementById('overlay');
+    const urlTable = document.getElementById('urlTable');
+    const rightOverlay = document.getElementById('rightOverlay');
 
+    // 解析 Excel 逻辑 (增强稳定性)
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
-        document.getElementById('fileName').innerText = "解析中...";
-        
+
+        document.getElementById('fileName').innerText = "读取中...";
+        startBtn.disabled = true;
+
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
             try {
-                const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
-                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                if (!workbook.SheetNames.length) throw new Error("Excel 里面没有工作表");
+                
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                
+                // 智能寻找包含 http 的列
                 let colIdx = -1;
-                for (let i = 0; i < Math.min(rows.length, 20); i++) {
-                    for (let j = 0; j < rows[i].length; j++) {
-                        if (String(rows[i][j]).trim().toLowerCase().startsWith('http')) { colIdx = j; break; }
+                const sampleRows = Math.min(rows.length, 50); // 增加扫描深度到50行
+                for (let i = 0; i < sampleRows; i++) {
+                    const row = rows[i];
+                    if (!row) continue;
+                    for (let j = 0; j < row.length; j++) {
+                        const cellStr = String(row[j] || "").trim();
+                        if (cellStr.toLowerCase().startsWith('http')) {
+                            colIdx = j; break;
+                        }
                     }
                     if (colIdx !== -1) break;
                 }
-                if (colIdx === -1) throw new Error("未找到网址列");
 
-                links = rows.map(r => String(r[colIdx] || '').trim()).filter(v => v.toLowerCase().startsWith('http'));
+                if (colIdx === -1) throw new Error("无法自动识别网址列，请检查表格内容");
 
+                // 提取所有有效的链接
+                links = rows
+                    .map(r => String(r[colIdx] || "").trim())
+                    .filter(v => v.toLowerCase().startsWith('http'));
+
+                if (links.length === 0) throw new Error("识别到了列，但没找到有效网址");
+
+                // UI 更新
                 document.getElementById('fileName').innerText = file.name;
-                document.getElementById('statTotal').innerText = links.length;
-                tableBody.innerHTML = links.map((l, i) => `<tr id="tr-${i}"><td>${i+1}. ${l}</td></tr>`).join('');
-                startBtn.innerText = "🚀 开始顺序审阅";
+                document.getElementById('totalNum').innerText = links.length;
+                urlTable.innerHTML = links.map((l, i) => `<tr id="row-${i}"><td>${i+1}. ${l}</td></tr>`).join('');
+                
+                startBtn.innerText = "🚀 开始执行";
                 startBtn.disabled = false;
             } catch (err) {
-                alert(err.message);
-                document.getElementById('fileName').innerText = "解析失败";
+                alert("解析失败: " + err.message);
+                document.getElementById('fileName').innerText = "解析失败，请重试";
             }
         };
     });
 
     function openNext() {
-        if (currentIndex >= links.length) { stop(); return; }
+        if (currentIndex >= links.length) { finish(); return; }
         if (currentPopup && !currentPopup.closed) currentPopup.close();
 
-        // --- 核心优化：弹窗永远定位在右侧 ---
-        const sidebarWidth = 420;
+        // --- 镜像避让逻辑 ---
+        const sidebarWidth = 400;
         const screenW = window.screen.availWidth;
         const screenH = window.screen.availHeight;
         
-        // 弹窗宽度 = 总宽度 - 工具栏宽度
-        const popupWidth = screenW - sidebarWidth;
-        const popupHeight = screenH;
-
-        // 设置 left 为工具栏宽度，使其靠右弹出
-        const features = `width=${popupWidth},height=${popupHeight},top=0,left=${sidebarWidth},resizable=yes,scrollbars=yes`;
+        // 弹窗占据左侧：宽度 = 总宽 - 工具栏宽，位置 left = 0
+        const popupW = screenW - sidebarWidth;
+        const features = `width=${popupW},height=${screenH},top=0,left=0,resizable=yes,scrollbars=yes`;
 
         currentPopup = window.open(links[currentIndex], "ReviewWindow", features);
         
-        // UI同步
+        if (!currentPopup) {
+            alert("弹窗被浏览器拦截，请在地址栏右侧允许弹窗！");
+            finish();
+            return;
+        }
+
+        // 预览表跟随高亮
         document.querySelectorAll('tr').forEach(r => r.classList.remove('active'));
-        const row = document.getElementById(`tr-${currentIndex}`);
-        if (row) { row.classList.add('active'); row.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        const row = document.getElementById(`row-${currentIndex}`);
+        if (row) {
+            row.classList.add('active');
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
         
-        document.getElementById('urlShow').innerText = links[currentIndex];
-        document.getElementById('statCurrent').innerText = currentIndex + 1;
+        document.getElementById('urlDisplay').innerText = links[currentIndex];
+        document.getElementById('currentNum').innerText = currentIndex + 1;
         currentIndex++;
     }
 
     function start() {
         isRunning = true; currentIndex = 0;
         startBtn.disabled = true;
-        overlay.style.display = 'flex';
+        rightOverlay.style.display = 'flex';
         openNext();
     }
 
-    function stop() {
-        isRunning = false; startBtn.disabled = false; startBtn.innerText = "重新开始";
-        overlay.style.display = 'none';
+    function finish() {
+        isRunning = false; startBtn.disabled = false; startBtn.innerText = "重新审阅";
+        rightOverlay.style.display = 'none';
+        if (currentPopup) currentPopup.close();
     }
 
-    // 全局按键与遮罩点击切换
+    // 交互绑定
     window.addEventListener('keydown', (e) => isRunning && openNext());
-    overlay.addEventListener('mousedown', () => isRunning && openNext());
+    rightOverlay.addEventListener('mousedown', () => isRunning && openNext());
     startBtn.addEventListener('click', start);
 </script>
 
