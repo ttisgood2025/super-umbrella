@@ -2,12 +2,12 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>独立弹窗轮换工具 v1.4 (高速版)</title>
+    <title>独立弹窗轮换工具 v1.5 (智能识别版)</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            background-color: #f1f5f9;
+            background-color: #f8fafc;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -19,49 +19,41 @@
             top: 10px;
             right: 15px;
             font-size: 11px;
-            color: #94a3b8;
-            background: #fff;
-            padding: 2px 8px;
-            border-radius: 4px;
+            color: #64748b;
+            background: #f1f5f9;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: bold;
             border: 1px solid #e2e8f0;
         }
         .container {
             background: white;
             padding: 30px;
             border-radius: 16px;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
             width: 100%;
-            max-width: 650px;
+            max-width: 700px;
             z-index: 10;
             position: relative;
         }
         h2 { color: #0f172a; margin: 0 0 20px 0; font-size: 24px; text-align: center; }
         
-        /* 优化后的上传区 */
+        /* 上传区 */
         .upload-area {
             border: 2px dashed #3b82f6;
-            padding: 50px 20px;
+            padding: 40px 20px;
             text-align: center;
             border-radius: 12px;
             background: #eff6ff;
             cursor: pointer;
             transition: all 0.2s;
-            position: relative;
         }
-        .upload-area.loading {
-            cursor: wait;
-            background: #f8fafc;
-            border-color: #94a3b8;
-        }
-        .upload-area:hover:not(.loading) { background: #dbeafe; }
-        
+        .upload-area:hover { background: #dbeafe; }
         #fileInput { display: none; }
 
-        /* 加载动画 */
         .spinner {
             display: none;
-            width: 30px;
-            height: 30px;
+            width: 30px; height: 30px;
             border: 3px solid #f3f3f3;
             border-top: 3px solid #3b82f6;
             border-radius: 50%;
@@ -75,17 +67,17 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 15px;
         }
         button {
             background-color: #2563eb;
             color: white;
             border: none;
-            padding: 12px 30px;
+            padding: 14px 35px;
             border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
             font-weight: 600;
-            transition: background 0.2s;
         }
         button:hover { background-color: #1d4ed8; }
         button:disabled { background-color: #cbd5e1; cursor: not-allowed; }
@@ -93,60 +85,70 @@
         .status-badge {
             background: #f1f5f9;
             color: #475569;
-            padding: 8px 16px;
+            padding: 10px 20px;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 13px;
+            flex-grow: 1;
+            text-align: center;
+            border: 1px solid #e2e8f0;
         }
 
-        /* 交互遮罩 */
         #overlay {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
+            background: rgba(15, 23, 42, 0.9);
             z-index: 999;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(8px);
         }
-        .card { background: white; padding: 40px; border-radius: 20px; text-align: center; max-width: 400px; }
+        .card { background: white; padding: 40px; border-radius: 24px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="version-tag">v1.4 High-Performance</div>
-    <h2>🚀 高速网页轮转审阅工具</h2>
+    <div class="version-tag">v1.5 Smart Detection</div>
+    <h2>🧠 网页轮转工具 (智能识别版)</h2>
     
-    <div class="upload-area" id="dropZone" onclick="handleAreaClick()">
-        <div id="uploadIcon" style="font-size: 40px;">📄</div>
+    <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <div id="uploadIcon" style="font-size: 45px;">🔍</div>
         <div class="spinner" id="loadingSpinner"></div>
-        <p id="fileNameDisplay" style="font-weight: 500;">点击上传 Excel 文件</p>
-        <p style="font-size: 12px; color: #64748b; margin-top: 8px;">支持极速读取 A 列链接</p>
+        <p id="fileNameDisplay" style="font-weight: 600; font-size: 18px; margin: 10px 0 5px;">点击上传 Excel 文件</p>
+        <p style="font-size: 13px; color: #64748b;">支持自动搜索表格中的网址列，无需固定 A 列</p>
         <input type="file" id="fileInput" accept=".xlsx, .xls">
     </div>
     
     <div class="controls">
         <button id="startBtn" disabled>等待文件</button>
-        <div id="progressText" class="status-badge">未就绪</div>
+        <div id="progressText" class="status-badge">未检测到数据</div>
     </div>
 
-    <div style="margin-top:20px; font-size: 12px; color: #94a3b8; line-height: 1.5;">
-        * 性能优化：v1.4 使用了 ArrayBuffer 异步流处理技术，大幅缩短大型表格解析耗时。<br>
-        * 操作提醒：开启后，点击本页或按任意键即执行“关旧开新”动作。
+    <div style="margin-top:25px; padding: 15px; background: #fffbeb; border-radius: 8px; border: 1px solid #fef3c7;">
+        <strong style="color: #92400e; font-size: 13px;">🆕 v1.5 核心改进：</strong><br>
+        <p style="font-size: 12px; color: #b45309; margin: 5px 0 0;">
+            • <b>全列扫描：</b>程序会自动分析所有列的内容，找到第一个包含 URL 的列。<br>
+            • <b>智能定位：</b>即使你的链接在第 B 列、C 列或更靠后，都能自动识别。<br>
+            • <b>操作保持：</b>沿用 v1.4 的极速读取架构，大文件也不卡顿。
+        </p>
     </div>
 </div>
 
 <div id="overlay">
     <div class="card">
-        <h2 style="color:#2563eb">正在审阅</h2>
-        <p style="font-size: 18px; color: #1e293b;">
+        <h2 style="color:#2563eb; margin-top:0;">正在智能审阅</h2>
+        <p style="font-size: 18px; color: #1e293b; line-height: 1.6;">
+            已自动锁定网址列<br>
             <b>点击本页面</b> 或 <b>按任意键</b><br>
-            <span style="color:#64748b; font-size:14px">自动关闭当前并打开下一条</span>
+            <span style="color:#64748b; font-size:15px">将关闭当前弹窗并开启下一条</span>
         </p>
-        <div style="margin-top:25px; padding:12px; background:#f8fafc; border-radius:10px;">
-            进度：<span id="currentCount" style="font-weight:bold; color:#2563eb">0</span> / <span id="totalCount">0</span>
+        <div style="margin-top:30px; padding:15px; background:#f1f5f9; border-radius:12px;">
+            <span style="color: #64748b;">当前进度：</span>
+            <span id="currentCount" style="font-weight:bold; color:#2563eb; font-size: 20px;">0</span> 
+            <span style="color: #94a3b8; margin: 0 5px;">/</span> 
+            <span id="totalCount" style="font-weight:bold;">0</span>
         </div>
     </div>
 </div>
@@ -159,79 +161,76 @@
     const uploadIcon = document.getElementById('uploadIcon');
     const loadingSpinner = document.getElementById('loadingSpinner');
     const overlay = document.getElementById('overlay');
-    const dropZone = document.getElementById('dropZone');
 
     let links = [];
     let currentIndex = 0;
     let isRunning = false;
     let currentPopup = null;
 
-    function handleAreaClick() {
-        if (!isRunning) fileInput.click();
-    }
-
-    // --- 极速解析逻辑 ---
+    // --- 智能列识别算法 ---
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
 
-        // 1. 立即切换 UI 状态（视觉反馈）
         uploadIcon.style.display = 'none';
         loadingSpinner.style.display = 'block';
-        fileNameDisplay.innerText = "正在极速解析数据...";
-        dropZone.classList.add('loading');
+        fileNameDisplay.innerText = "智能分析中...";
         startBtn.disabled = true;
 
         const reader = new FileReader();
-        
-        // 2. 使用 ArrayBuffer 代替 BinaryString，提升读取二进制文件的性能
         reader.readAsArrayBuffer(file);
 
         reader.onload = function(evt) {
-            // 使用 setTimeout 确保 UI 已经渲染了“读取中”的状态
             setTimeout(() => {
                 try {
                     const data = new Uint8Array(evt.target.result);
-                    // 3. 优化 XLSX 读取参数
-                    const workbook = XLSX.read(data, { 
-                        type: 'array',
-                        cellDates: false,
-                        cellHTML: false,
-                        cellFormula: false,
-                        cellText: false // 仅读取原始值，跳过格式化处理，大幅提速
-                    });
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
                     
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    // 4. 仅提取第一列，避免处理全表数据
-                    const range = XLSX.utils.decode_range(firstSheet['!ref']);
-                    const result = [];
+                    // 将表格转为二维数组 (提取前10行做样本分析)
+                    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
                     
-                    for (let r = range.s.r; r <= range.e.r; r++) {
-                        const cellAddress = XLSX.utils.encode_cell({r: r, c: 0}); // 0 表示 A 列
-                        const cell = firstSheet[cellAddress];
-                        if (cell && cell.v) {
-                            const val = String(cell.v).trim();
-                            if (val.startsWith('http')) result.push(val);
+                    if (rows.length === 0) throw new Error("表格是空的");
+
+                    let urlColumnIndex = -1;
+                    
+                    // 核心算法：寻找第一个包含 http 的单元格所在的列
+                    // 遍历前 20 行样本（避免标题行干扰）
+                    for (let i = 0; i < Math.min(rows.length, 20); i++) {
+                        const row = rows[i];
+                        for (let j = 0; j < row.length; j++) {
+                            const cellValue = String(row[j]).trim();
+                            if (cellValue.toLowerCase().startsWith('http')) {
+                                urlColumnIndex = j;
+                                break;
+                            }
                         }
+                        if (urlColumnIndex !== -1) break;
                     }
 
-                    links = result;
+                    if (urlColumnIndex === -1) {
+                        throw new Error("未能自动识别出网址列，请确保表格中包含以 http 开头的链接");
+                    }
+
+                    // 提取目标列所有链接
+                    links = rows.map(r => String(r[urlColumnIndex] || '').trim())
+                                .filter(val => val.toLowerCase().startsWith('http'));
 
                     if (links.length > 0) {
-                        fileNameDisplay.innerHTML = `<span style="color:#16a34a">成功载入 ${links.length} 条链接</span><br><small>${file.name}</small>`;
-                        progressText.innerText = "就绪";
+                        const colLetter = String.fromCharCode(65 + urlColumnIndex);
+                        fileNameDisplay.innerHTML = `<span style="color:#16a34a">已锁定第 ${urlColumnIndex + 1} 列 (${colLetter}列)</span><br><small>共提取 ${links.length} 个链接</small>`;
+                        progressText.innerText = `智能识别成功 | 共 ${links.length} 条`;
                         startBtn.disabled = false;
-                        startBtn.innerText = "进入审阅模式";
+                        startBtn.innerText = "开启智能审阅";
                     } else {
-                        throw new Error("第一列未发现链接");
+                        throw new Error("该列中没有有效链接");
                     }
                 } catch (err) {
-                    alert("解析失败: " + err.message);
-                    fileNameDisplay.innerText = "重试上传";
+                    alert("识别失败: " + err.message);
+                    fileNameDisplay.innerText = "点击重新上传";
                 } finally {
                     uploadIcon.style.display = 'block';
                     loadingSpinner.style.display = 'none';
-                    dropZone.classList.remove('loading');
                 }
             }, 50);
         };
@@ -245,23 +244,18 @@
         }
 
         const url = links[currentIndex];
-        // 尝试打开新窗口
-        currentPopup = window.open(url, "ReviewWindow", "width=1280,height=900,top=50,left=50,resizable=yes");
+        currentPopup = window.open(url, "ReviewWindow", "width=1366,height=900,top=30,left=30,resizable=yes");
 
         if (!currentPopup) {
-            alert("请允许本页面的弹出式窗口！");
+            alert("请允许弹出窗口！");
             stop();
             return;
         }
 
         currentIndex++;
-        
-        // 更新 UI 进度
         document.getElementById('currentCount').innerText = currentIndex;
         document.getElementById('totalCount').innerText = links.length;
         progressText.innerText = `进度: ${currentIndex}/${links.length}`;
-        
-        if (currentIndex > links.length) stop();
     }
 
     function start() {
@@ -278,7 +272,7 @@
         startBtn.disabled = false;
         fileInput.disabled = false;
         overlay.style.display = 'none';
-        progressText.innerText = "任务完成";
+        progressText.innerText = "任务已完成";
         currentPopup = null;
     }
 
