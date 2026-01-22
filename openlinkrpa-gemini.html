@@ -2,323 +2,280 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>独立弹窗轮换工具 v1.7 (修复版)</title>
+    <title>独立弹窗轮换工具 v1.8 (分屏专业版)</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        body {
-            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            background-color: #f1f5f9;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 40px;
-            margin: 0;
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
         }
+
+        body {
+            font-family: 'Inter', 'PingFang SC', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
         .version-tag {
-            position: absolute;
-            top: 10px;
-            right: 15px;
-            font-size: 11px;
-            color: #64748b;
-            background: #fff;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-weight: bold;
-            border: 1px solid #e2e8f0;
+            position: absolute; top: 15px; right: 20px;
+            padding: 4px 12px; background: white;
+            border-radius: 20px; border: 1px solid #e2e8f0;
+            font-size: 11px; font-weight: 700; color: var(--primary);
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
+
         .container {
-            background: white;
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
-            width: 100%;
-            max-width: 800px;
-            z-index: 10;
-            position: relative;
+            width: 100%; max-width: 900px;
+            display: grid; grid-template-columns: 320px 1fr; gap: 24px;
         }
-        h2 { color: #0f172a; margin: 0 0 20px 0; font-size: 24px; text-align: center; }
-        
-        /* 上传区 */
-        .upload-area {
-            border: 2px dashed #3b82f6;
-            padding: 30px 20px;
-            text-align: center;
+
+        /* 左侧面板：控制与统计 */
+        .sidebar { display: flex; flex-direction: column; gap: 20px; }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.06);
+            border: 1px solid #f1f5f9;
+        }
+
+        /* 上传区域美化 */
+        .upload-box {
+            border: 2px dashed #cbd5e1;
             border-radius: 12px;
-            background: #eff6ff;
+            padding: 20px;
+            text-align: center;
             cursor: pointer;
             transition: all 0.2s;
+            background: #fdfdfd;
         }
-        .upload-area:hover { background: #dbeafe; border-color: #2563eb; }
-        #fileInput { display: none; }
+        .upload-box:hover { border-color: var(--primary); background: #f5f3ff; }
+        .upload-box i { font-size: 32px; display: block; margin-bottom: 8px; }
 
-        /* 预览表格 */
-        .preview-container {
-            margin-top: 20px;
-            max-height: 250px;
-            overflow-y: auto;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            display: none;
-        }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
-        th { background: #f8fafc; position: sticky; top: 0; padding: 10px; border-bottom: 2px solid #e2e8f0; color: #64748b; }
-        td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; word-break: break-all; }
-        tr:hover { background: #f1f5f9; }
-        .current-row { background: #dbeafe !important; font-weight: bold; color: #1e40af; }
-
-        .controls {
-            margin-top: 25px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 15px;
+        /* 进度条 */
+        .progress-container { margin-top: 15px; }
+        .progress-bar-bg { background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden; }
+        .progress-bar-fill { 
+            background: var(--primary); width: 0%; height: 100%; 
+            transition: width 0.3s ease; 
         }
 
-        /* 修复后的按钮样式 */
+        /* 按钮美化 */
         #startBtn {
-            background-color: #2563eb;
-            color: white;
-            border: none;
-            padding: 14px 35px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            min-width: 200px;
+            width: 100%; border: none; padding: 14px;
+            border-radius: 10px; font-size: 15px; font-weight: 700;
+            cursor: pointer; transition: all 0.2s;
+            background: var(--primary); color: white;
+            margin-top: 10px;
         }
-        #startBtn:not(:disabled) {
-            animation: readyPulse 2s infinite;
-            background-color: #1d4ed8;
-            box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.39);
-        }
-        #startBtn:hover:not(:disabled) { background-color: #1e40af; transform: translateY(-1px); }
-        #startBtn:disabled { background-color: #cbd5e1; cursor: not-allowed; animation: none; color: #64748b; }
+        #startBtn:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
+        #startBtn:not(:disabled):hover { background: var(--primary-hover); transform: translateY(-1px); }
 
-        @keyframes readyPulse {
-            0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
-        }
-        
-        .status-badge {
-            background: #f8fafc;
-            color: #475569;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 13px;
-            border: 1px solid #e2e8f0;
-            flex-grow: 1;
-            text-align: right;
-        }
+        /* 右侧面板：数据预览 */
+        .main-content { min-width: 0; }
+        .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .table-header h3 { margin: 0; font-size: 16px; }
 
+        .preview-scroll {
+            background: white; border-radius: 12px; border: 1px solid #e2e8f0;
+            max-height: 500px; overflow-y: auto;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #f8fafc; text-align: left; padding: 12px; color: var(--text-muted); position: sticky; top: 0; z-index: 1; }
+        td { padding: 10px 12px; border-top: 1px solid #f1f5f9; color: var(--text-main); word-break: break-all; }
+        tr.active { background: #f5f3ff; }
+        tr.active td:first-child { border-left: 4px solid var(--primary); color: var(--primary); font-weight: 700; }
+
+        /* 遮罩层提示 */
         #overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15, 23, 42, 0.88);
-            z-index: 999;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            backdrop-filter: blur(6px);
+            display: none; position: fixed; inset: 0;
+            background: rgba(15, 23, 42, 0.9); z-index: 1000;
+            backdrop-filter: blur(8px); flex-direction: column; align-items: center; justify-content: center;
         }
-        .card { background: white; padding: 40px; border-radius: 24px; text-align: center; max-width: 500px; width: 90%; }
-        .url-preview { color: #2563eb; font-family: monospace; font-size: 14px; margin: 15px 0; word-break: break-all; background: #eff6ff; padding: 10px; border-radius: 8px; }
+        .instruction-card {
+            background: white; padding: 40px; border-radius: 24px; text-align: center; max-width: 440px;
+        }
+
+        .split-tip {
+            font-size: 12px; color: #f59e0b; background: #fffbeb; padding: 10px; border-radius: 8px; margin-top: 10px;
+            border: 1px solid #fef3c7;
+        }
     </style>
 </head>
 <body>
 
+<div class="version-tag">V1.8 PRO-SPLIT</div>
+
 <div class="container">
-    <div class="version-tag">Version 1.7 (Button Label Fixed)</div>
-    <h2>📑 网页审阅工具 (专业版)</h2>
-    
-    <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
-        <div id="uploadIcon" style="font-size: 40px;">📂</div>
-        <p id="fileNameDisplay" style="font-weight: 600; margin: 10px 0 5px;">点击上传 Excel 表格</p>
-        <p style="font-size: 12px; color: #64748b;">智能识别网址列并生成预览</p>
-        <input type="file" id="fileInput" accept=".xlsx, .xls">
+    <div class="sidebar">
+        <div class="card">
+            <h2 style="margin:0 0 16px 0; font-size: 20px;">审阅控制台</h2>
+            <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+                <span style="font-size: 30px;">📄</span>
+                <div id="fileName" style="font-weight: 600; font-size: 14px; margin-top:8px;">上传 Excel</div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top:4px;">自动识别网址列</div>
+                <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
+            </div>
+
+            <div class="progress-container">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+                    <span color="var(--text-muted)">任务进度</span>
+                    <span id="percentText" style="font-weight: 700;">0%</span>
+                </div>
+                <div class="progress-bar-bg"><div id="progressBar" class="progress-bar-fill"></div></div>
+            </div>
+
+            <button id="startBtn" disabled>等待文件解析</button>
+            <div class="split-tip">
+                💡 <b>分屏建议：</b>开始后，弹窗会出现在<b>左侧</b>。建议将本页面置于屏幕<b>右侧</b>。
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin:0 0 10px 0; font-size: 14px; color: var(--text-muted);">统计信息</h3>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span>总条数:</span><span id="statTotal" style="font-weight:700;">-</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>当前第:</span><span id="statCurrent" style="font-weight:700; color: var(--primary);">-</span>
+            </div>
+        </div>
     </div>
 
-    <div class="preview-container" id="previewContainer">
-        <table>
-            <thead>
-                <tr><th width="60">编号</th><th>提取到的链接网址</th></tr>
-            </thead>
-            <tbody id="previewBody"></tbody>
-        </table>
-    </div>
-    
-    <div class="controls">
-        <button id="startBtn" disabled>等待文件</button>
-        <div id="progressText" class="status-badge">未检测到数据</div>
-    </div>
-</div>
-
-<div id="overlay">
-    <div class="card">
-        <h2 style="color:#0f172a; margin-top:0;">执行审阅中</h2>
-        <p style="font-size: 16px; color: #475569; margin-bottom: 5px;">当前正在访问：</p>
-        <div class="url-preview" id="activeUrlDisplay"></div>
-        <p style="font-size: 15px; color: #1e293b; margin-top: 20px;">
-            <b>操作提示：</b><br>
-            点击本页任何地方，或按<b>任意键</b><br>
-            即可关闭当前弹窗并切换下一条
-        </p>
-        <div style="margin-top:25px; padding:15px; background:#f8fafc; border-radius:12px; border: 1px solid #e2e8f0;">
-            进度：<span id="currentCount" style="font-weight:bold; color:#2563eb; font-size: 22px;">0</span> 
-            <span style="color: #94a3b8; margin: 0 5px;">/</span> 
-            <span id="totalCount" style="font-weight:bold; color: #0f172a;">0</span>
+    <div class="main-content">
+        <div class="table-header">
+            <h3>数据预览</h3>
+            <span id="statusBadge" style="font-size:12px; color: var(--text-muted);">未加载</span>
+        </div>
+        <div class="preview-scroll">
+            <table>
+                <thead>
+                    <tr><th width="50">#</th><th>目标网址</th></tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="2" style="text-align:center; padding: 40px; color: #94a3b8;">请上传文件以解析数据</td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
-<script>
-    const fileInput = document.getElementById('fileInput');
-    const startBtn = document.getElementById('startBtn');
-    const progressText = document.getElementById('progressText');
-    const fileNameDisplay = document.getElementById('fileNameDisplay');
-    const previewContainer = document.getElementById('previewContainer');
-    const previewBody = document.getElementById('previewBody');
-    const overlay = document.getElementById('overlay');
-    const activeUrlDisplay = document.getElementById('activeUrlDisplay');
+<div id="overlay">
+    <div class="instruction-card">
+        <div style="font-size: 40px; margin-bottom: 10px;">💻</div>
+        <h2 style="margin:0; color: var(--primary);">正在审阅</h2>
+        <p id="currentUrlText" style="font-size: 13px; color: var(--text-muted); background: #f1f5f9; padding: 10px; border-radius: 8px; margin: 20px 0;"></p>
+        <p style="font-size: 16px; font-weight: 600;">按【任意键】或【点击此页】</p>
+        <p style="font-size: 14px; color: var(--text-muted);">切换到下一条链接</p>
+    </div>
+</div>
 
+<script>
     let links = [];
     let currentIndex = 0;
     let isRunning = false;
     let currentPopup = null;
 
+    const fileInput = document.getElementById('fileInput');
+    const startBtn = document.getElementById('startBtn');
+    const tableBody = document.getElementById('tableBody');
+    const progressBar = document.getElementById('progressBar');
+    const percentText = document.getElementById('percentText');
+
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
 
-        // 重置 UI 到加载状态
+        document.getElementById('fileName').innerText = "解析中...";
         startBtn.disabled = true;
-        startBtn.innerText = "正在读取...";
-        fileNameDisplay.innerText = "数据解析中...";
-        
+
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
-
         reader.onload = function(evt) {
             try {
-                const data = new Uint8Array(evt.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
                 
-                let urlColumnIndex = -1;
+                let colIdx = -1;
                 for (let i = 0; i < Math.min(rows.length, 20); i++) {
-                    const row = rows[i];
-                    for (let j = 0; j < row.length; j++) {
-                        if (String(row[j]).trim().toLowerCase().startsWith('http')) {
-                            urlColumnIndex = j; break;
-                        }
+                    for (let j = 0; j < rows[i].length; j++) {
+                        if (String(rows[i][j]).trim().toLowerCase().startsWith('http')) { colIdx = j; break; }
                     }
-                    if (urlColumnIndex !== -1) break;
+                    if (colIdx !== -1) break;
                 }
 
-                if (urlColumnIndex === -1) throw new Error("在表格前20行中未识别到网址列");
+                if (colIdx === -1) throw new Error("未找到网址列");
 
-                links = rows.map(r => String(r[urlColumnIndex] || '').trim())
-                            .filter(val => val.toLowerCase().startsWith('http'));
+                links = rows.map(r => String(r[colIdx] || '').trim()).filter(v => v.toLowerCase().startsWith('http'));
 
-                // 渲染预览表格
-                previewBody.innerHTML = links.map((link, idx) => `
-                    <tr id="row-${idx}">
-                        <td>${idx + 1}</td>
-                        <td class="link-cell">${link}</td>
-                    </tr>
-                `).join('');
-                previewContainer.style.display = 'block';
-
-                fileNameDisplay.innerHTML = `<span style="color:#16a34a">✅ 已就绪: ${file.name}</span>`;
-                progressText.innerText = `已锁定网址列，共 ${links.length} 条数据`;
+                // 渲染 UI
+                document.getElementById('fileName').innerText = file.name;
+                document.getElementById('statTotal').innerText = links.length;
+                document.getElementById('statusBadge').innerText = "解析成功";
+                tableBody.innerHTML = links.map((l, i) => `<tr id="tr-${i}"><td>${i+1}</td><td>${l}</td></tr>`).join('');
                 
-                // --- 核心修复：更新按钮状态和文字 ---
-                startBtn.innerText = "🚀 开始执行审阅";
+                // 修复按钮文字
+                startBtn.innerText = "🚀 开始执行任务";
                 startBtn.disabled = false;
-
             } catch (err) {
-                alert("解析出错: " + err.message);
-                fileNameDisplay.innerText = "文件解析失败，请重试";
-                startBtn.innerText = "等待文件";
-                startBtn.disabled = true;
+                alert(err.message);
+                document.getElementById('fileName').innerText = "解析失败";
             }
         };
     });
 
     function openNext() {
-        if (!isRunning || currentIndex >= links.length) return;
+        if (currentIndex >= links.length) { stop(); return; }
 
-        if (currentPopup && !currentPopup.closed) {
-            currentPopup.close();
-        }
+        if (currentPopup && !currentPopup.closed) currentPopup.close();
 
-        // 窗口尺寸控制在 2/3
-        const targetWidth = Math.floor(window.innerWidth * 0.65);
-        const targetHeight = Math.floor(window.innerHeight * 0.65);
-        const features = `width=${targetWidth},height=${targetHeight},top=50,left=50,resizable=yes,scrollbars=yes`;
+        // --- 分屏逻辑：靠左侧放置，占据 65% 宽度 ---
+        const w = window.screen.availWidth * 0.65;
+        const h = window.screen.availHeight;
+        const features = `width=${w},height=${h},top=0,left=0,resizable=yes,scrollbars=yes`;
 
-        const url = links[currentIndex];
-        currentPopup = window.open(url, "ReviewWindow", features);
+        currentPopup = window.open(links[currentIndex], "ReviewWindow", features);
+        if (!currentPopup) { alert("弹窗拦截！"); stop(); return; }
 
-        if (!currentPopup) {
-            alert("请允许浏览器弹出窗口！");
-            stop();
-            return;
-        }
+        // 同步 UI
+        document.querySelectorAll('tr').forEach(r => r.classList.remove('active'));
+        const row = document.getElementById(`tr-${currentIndex}`);
+        if (row) { row.classList.add('active'); row.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 
-        // 同步预览表高亮
-        document.querySelectorAll('tr').forEach(r => r.classList.remove('current-row'));
-        const activeRow = document.getElementById(`row-${currentIndex}`);
-        if (activeRow) {
-            activeRow.classList.add('current-row');
-            activeRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-
-        activeUrlDisplay.innerText = url;
+        document.getElementById('currentUrlText').innerText = links[currentIndex];
         currentIndex++;
-        document.getElementById('currentCount').innerText = currentIndex;
-        document.getElementById('totalCount').innerText = links.length;
-        progressText.innerText = `执行中: ${currentIndex}/${links.length}`;
+        
+        // 更新进度
+        const progress = Math.round((currentIndex / links.length) * 100);
+        progressBar.style.width = progress + "%";
+        percentText.innerText = progress + "%";
+        document.getElementById('statCurrent').innerText = currentIndex;
     }
 
     function start() {
-        if (links.length === 0) return;
-        isRunning = true;
-        currentIndex = 0;
+        isRunning = true; currentIndex = 0;
         startBtn.disabled = true;
-        fileInput.disabled = true;
-        overlay.style.display = 'flex';
+        document.getElementById('overlay').style.display = 'flex';
         openNext();
     }
 
     function stop() {
-        isRunning = false;
-        startBtn.disabled = false;
-        startBtn.innerText = "重新执行审阅";
-        fileInput.disabled = false;
-        overlay.style.display = 'none';
-        progressText.innerText = "审阅结束";
+        isRunning = false; startBtn.disabled = false; startBtn.innerText = "重新开始任务";
+        document.getElementById('overlay').style.display = 'none';
         currentPopup = null;
     }
 
-    function handleTrigger(e) {
-        if (!isRunning) return;
-        if (e.type === 'keydown') e.preventDefault();
-        
-        if (currentIndex < links.length) {
-            openNext();
-        } else {
-            if (currentPopup && !currentPopup.closed) currentPopup.close();
-            stop();
-        }
-    }
-
-    window.addEventListener('keydown', handleTrigger);
-    overlay.addEventListener('mousedown', handleTrigger);
+    window.addEventListener('keydown', (e) => isRunning && openNext());
+    document.getElementById('overlay').addEventListener('mousedown', () => isRunning && openNext());
     startBtn.addEventListener('click', start);
 </script>
 
