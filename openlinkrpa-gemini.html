@@ -2,48 +2,54 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>独立弹窗轮转工具 v1.2</title>
+    <title>独立弹窗轮换工具 v1.3 (Excel版)</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            background-color: #f4f4f9;
+            background-color: #f8fafc;
             display: flex;
             flex-direction: column;
             align-items: center;
             padding: 40px;
             margin: 0;
         }
-        /* 版本标记 */
         .version-tag {
             position: absolute;
             top: 10px;
             right: 15px;
             font-size: 12px;
-            color: #999;
+            color: #94a3b8;
             font-family: monospace;
         }
         .container {
             background: white;
             padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
             width: 100%;
             max-width: 650px;
             z-index: 10;
             position: relative;
+            border: 1px solid #e2e8f0;
         }
-        h2 { color: #2c3e50; margin-top: 0; border-bottom: 2px solid #4a90e2; padding-bottom: 10px; }
-        textarea {
-            width: 100%;
-            height: 180px;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            box-sizing: border-box;
-            font-family: 'Consolas', monospace;
-            font-size: 14px;
-            margin-top: 10px;
+        h2 { color: #1e293b; margin-top: 0; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; }
+        
+        /* Excel 上传区域样式 */
+        .upload-area {
+            border: 2px dashed #cbd5e1;
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 12px;
+            background: #f1f5f9;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
         }
+        .upload-area:hover { background: #e2e8f0; border-color: #3b82f6; }
+        .upload-area p { margin: 10px 0 0; color: #64748b; }
+        #fileInput { display: none; }
+
         .controls {
             margin-top: 25px;
             display: flex;
@@ -51,96 +57,103 @@
             justify-content: space-between;
         }
         button {
-            background-color: #4a90e2;
+            background-color: #3b82f6;
             color: white;
             border: none;
             padding: 12px 28px;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
             font-weight: 600;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
         }
-        button:hover { background-color: #357abd; }
-        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        button:hover { background-color: #2563eb; }
+        button:disabled { background-color: #94a3b8; cursor: not-allowed; box-shadow: none; }
+        
         .status-badge {
-            background: #f0f7ff;
-            color: #4a90e2;
-            padding: 5px 15px;
-            border-radius: 20px;
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 6px 16px;
+            border-radius: 99px;
             font-size: 14px;
+            font-weight: 500;
         }
         .info-box {
             margin-top: 25px;
             padding: 15px;
-            background-color: #fff9db;
-            border-left: 4px solid #fcc419;
+            background-color: #fefce8;
+            border-left: 4px solid #eab308;
             font-size: 13px;
-            color: #856404;
+            color: #854d0e;
             line-height: 1.6;
         }
-        /* 全屏交互遮罩层 */
+
+        /* 交互遮罩层 */
         #overlay {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(44, 62, 80, 0.9);
+            background: rgba(15, 23, 42, 0.85);
             z-index: 999;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            backdrop-filter: blur(5px);
+            backdrop-filter: blur(8px);
         }
         .instruction-card {
             background: white;
             padding: 40px;
-            border-radius: 20px;
+            border-radius: 24px;
             text-align: center;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-        }
-        .key-hint {
-            display: inline-block;
-            padding: 4px 10px;
-            background: #e9ecef;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            font-family: monospace;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="version-tag">Version 1.2 (Auto-Close Enabled)</div>
-    <h2>📑 网页轮转审阅工具</h2>
-    <textarea id="linksInput" placeholder="在此粘贴链接，每行一个..."></textarea>
+    <div class="version-tag">Version 1.3 (Excel Import Enabled)</div>
+    <h2>📊 网页轮转审阅工具</h2>
+    
+    <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <div style="font-size: 40px;">📁</div>
+        <p id="fileNameDisplay">点击此处上传 Excel 文件 (.xlsx / .xls)</p>
+        <p style="font-size: 12px; color: #94a3b8;">程序将自动读取表格中第一列的所有链接</p>
+        <input type="file" id="fileInput" accept=".xlsx, .xls">
+    </div>
     
     <div class="controls">
-        <button id="startBtn">开始审阅</button>
-        <span id="progressText" class="status-badge">等待任务</span>
+        <button id="startBtn" disabled>请先上传文件</button>
+        <span id="progressText" class="status-badge">等待数据...</span>
     </div>
 
     <div class="info-box">
-        <strong>🆕 v1.2 更新特性：</strong><br>
-        • <b>自动清理：</b>按下继续键后，程序会<b>自动关闭</b>上一个弹窗再打开下一个。<br>
-        • <b>专注模式：</b>始终只保持一个预览窗口，避免桌面拥挤。<br>
-        • <b>操作说明：</b>切回本页后按 <span class="key-hint">空格/回车</span> 或 <span class="key-hint">点击任意处</span> 即可切换。
+        <strong>🚀 v1.3 更新特性：</strong><br>
+        • <b>Excel 驱动：</b>无需复制粘贴，直接导入表格即可开始。<br>
+        • <b>智能提取：</b>自动识别第一张工作表（Sheet）的第一列链接。<br>
+        • <b>操作流：</b>导入 → 弹窗预览 → <b>切回本页按键/点击</b> → 旧窗口关闭并切换下一个。
     </div>
 </div>
 
 <div id="overlay">
     <div class="instruction-card">
-        <h2 style="border:none">已暂停</h2>
-        <p style="font-size: 18px;">点击或按任意键：<br><b style="color: #e67e22;">关闭当前窗口并进入下一个</b></p>
-        <div style="margin-top:20px; color:#7f8c8d;">
-            进度: <span id="currentCount">0</span> / <span id="totalCount">0</span>
+        <h2 style="border:none; color:#1e293b">阅览中...</h2>
+        <p style="font-size: 18px; color: #475569;">
+            操作提示：<br>
+            <span style="color: #3b82f6; font-weight: bold;">按下任意键</span> 或 <span style="color: #3b82f6; font-weight: bold;">点击此处</span><br>
+            即可关闭当前窗口并切换下一个
+        </p>
+        <div style="margin-top:30px; padding: 10px; background: #f1f5f9; border-radius: 12px; color:#64748b;">
+            当前进度: <span id="currentCount" style="color:#1e293b; font-weight:bold;">0</span> / <span id="totalCount">0</span>
         </div>
     </div>
 </div>
 
 <script>
-    const linksInput = document.getElementById('linksInput');
+    const fileInput = document.getElementById('fileInput');
     const startBtn = document.getElementById('startBtn');
     const progressText = document.getElementById('progressText');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
     const overlay = document.getElementById('overlay');
     const currentCountSpan = document.getElementById('currentCount');
     const totalCountSpan = document.getElementById('totalCount');
@@ -148,18 +161,55 @@
     let links = [];
     let currentIndex = 0;
     let isRunning = false;
-    let currentPopup = null; // 用于存储当前打开窗口的引用
+    let currentPopup = null;
 
-    const windowFeatures = "width=1200,height=800,top=50,left=50,scrollbars=yes,resizable=yes";
+    const windowFeatures = "width=1280,height=900,top=50,left=50,scrollbars=yes,resizable=yes";
+
+    // --- Excel 文件处理逻辑 ---
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        fileNameDisplay.innerText = "正在读取: " + file.name;
+        
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            const data = evt.target.result;
+            const workbook = XLSX.read(data, { type: 'binary' });
+            
+            // 获取第一个工作表
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // 转换为 JSON (取第一列)
+            const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            // 提取所有以 http 开头的单元格内容
+            links = json.map(row => row[0]) // 只看第一列
+                        .filter(cell => cell && typeof cell === 'string' && cell.trim().startsWith('http'));
+
+            if (links.length > 0) {
+                progressText.innerText = `已载入 ${links.length} 条链接`;
+                startBtn.disabled = false;
+                startBtn.innerText = "开始执行任务";
+                fileNameDisplay.innerHTML = `✅ 已就绪: ${file.name}<br><small>${links.length} 个链接</small>`;
+            } else {
+                alert("在表格第一列没找到任何链接，请检查格式！");
+                fileNameDisplay.innerText = "文件无效，请重新上传";
+                startBtn.disabled = true;
+            }
+        };
+        reader.readAsBinaryString(file);
+    });
 
     function updateUI() {
         if (currentIndex < links.length) {
             const current = currentIndex + 1;
-            progressText.innerText = `正在浏览: ${current} / ${links.length}`;
+            progressText.innerText = `执行中: ${current} / ${links.length}`;
             currentCountSpan.innerText = current;
             totalCountSpan.innerText = links.length;
         } else {
-            progressText.innerText = "🎉 审阅已全部完成";
+            progressText.innerText = "✅ 任务完成";
             stop();
         }
     }
@@ -167,43 +217,31 @@
     function openNext() {
         if (!isRunning || currentIndex >= links.length) return;
 
-        // --- 核心逻辑：关闭之前的窗口 ---
+        // 自动关闭上一个
         if (currentPopup && !currentPopup.closed) {
             currentPopup.close();
         }
 
         const url = links[currentIndex].trim();
-        if (url) {
-            // 打开新窗口并保存引用
-            currentPopup = window.open(url, "ReviewWindow", windowFeatures);
-            
-            // 如果浏览器拦截了弹窗
-            if (!currentPopup) {
-                alert("弹窗被浏览器拦截，请在地址栏右侧选择‘始终允许’后再试。");
-                stop();
-                return;
-            }
+        currentPopup = window.open(url, "ReviewWindow", windowFeatures);
 
-            currentIndex++;
-            updateUI();
+        if (!currentPopup) {
+            alert("请允许弹出窗口！");
+            stop();
+            return;
         }
+
+        currentIndex++;
+        updateUI();
     }
 
     function start() {
-        const text = linksInput.value.trim();
-        if (!text) return;
-
-        links = text.split(/\n/).filter(line => line.trim().startsWith('http'));
-        
-        if (links.length === 0) {
-            alert("未发现有效链接！");
-            return;
-        }
+        if (links.length === 0) return;
 
         isRunning = true;
         currentIndex = 0;
         startBtn.disabled = true;
-        linksInput.disabled = true;
+        fileInput.disabled = true;
         
         openNext();
         
@@ -213,12 +251,9 @@
     }
 
     function stop() {
-        // 最后完成后是否关闭最后一个窗口可根据需求调整
-        // if (currentPopup && !currentPopup.closed) currentPopup.close();
-        
         isRunning = false;
         startBtn.disabled = false;
-        linksInput.disabled = false;
+        fileInput.disabled = false;
         overlay.style.display = 'none';
         currentPopup = null;
     }
@@ -227,11 +262,9 @@
         if (!isRunning) return;
         if (e.type === 'keydown') e.preventDefault();
 
-        // 点击或按键后，执行开启下一个的操作
         if (currentIndex < links.length) {
             openNext();
         } else {
-            // 如果已经是最后一个，关闭最后一个窗口并结束
             if (currentPopup && !currentPopup.closed) currentPopup.close();
             stop();
         }
