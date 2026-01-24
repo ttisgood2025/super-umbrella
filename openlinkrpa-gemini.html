@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v2.9 (弹窗强化版)</title>
+    <title>网页审阅工具 v3.0 (弹窗修复版)</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -26,6 +26,7 @@
         .sidebar-header { padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; }
         .sidebar-content { padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; position: relative; }
 
+        /* 统计数据常驻 */
         .stat-container {
             background: white; padding: 15px; border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px;
@@ -55,6 +56,7 @@
         .marked-red { color: var(--danger) !important; font-weight: bold; }
         .mark-tag { font-size: 10px; background: #fee2e2; color: #ef4444; padding: 2px 4px; border-radius: 4px; margin-left: 5px; }
 
+        /* 操作遮罩 */
         #rightOverlay {
             display: none; position: absolute; left: 0; right: 0; bottom: 0; top: 165px; 
             background: rgba(15, 23, 42, 0.95); z-index: 250;
@@ -75,7 +77,7 @@
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <div style="font-size: 11px; opacity: 0.8;">v2.9 Ultimate Mode</div>
+        <div style="font-size: 11px; opacity: 0.8;">v3.0 Final Stable</div>
         <h2 style="margin: 4px 0 0 0;">审阅结果工作台</h2>
     </div>
 
@@ -95,7 +97,7 @@
         </div>
 
         <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-            <div id="fileName" style="font-size: 13px; font-weight: 600; color: #64748b;">选择 Excel 开始</div>
+            <div id="fileName" style="font-size: 13px; font-weight: 600; color: #64748b;">选择 Excel 自动重排</div>
             <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
         </div>
 
@@ -110,7 +112,7 @@
             <div id="urlDisplay" style="font-size: 11px; color: #818cf8; margin-bottom: 20px; padding: 0 20px; text-align: center; word-break: break-all;"></div>
             <div class="btn-group">
                 <button class="action-btn btn-mark" id="markRedBtn">🚩 标记该条记录</button>
-                <button class="action-btn btn-next" id="nextBtn">下一条 (Space/Enter)</button>
+                <button class="action-btn btn-next" id="nextBtn">下一条 (或点遮罩层)</button>
                 <button class="action-btn btn-stop" id="stopBtnHand">中止并保存</button>
             </div>
         </div>
@@ -121,6 +123,7 @@
     let rawData = [], links = [], currentIndex = 0;
     let isRunning = false, currentPopup = null, currentFileName = "result.xlsx";
 
+    // 数据重排
     function shuffleByPlatform(items) {
         const groups = {};
         items.forEach(item => {
@@ -136,10 +139,10 @@
         return sorted;
     }
 
+    // 文件读取
     document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0]; if (!file) return;
-        document.getElementById('fileName').innerText = "加载中...";
-        currentFileName = "审阅结果_" + file.name;
+        currentFileName = "标记结果_" + file.name;
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
@@ -172,29 +175,34 @@
         document.getElementById('progressBar').style.width = (links.length > 0 ? (currentIndex / links.length) * 100 : 0) + "%";
     }
 
-    // --- 极简加固弹窗函数 ---
-    function triggerPopup() {
+    // --- 核心修复：彻底稳固的跳转函数 ---
+    function doActionNext() {
+        if (!isRunning) return;
         if (currentIndex >= links.length) { finish(); return; }
 
         const url = links[currentIndex].url;
-        const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0,resizable=yes,scrollbars=yes`;
+        const windowName = "ReviewWorker"; // 固定名称
+        const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0`;
 
-        // 不关闭，直接在同一个句柄名下打开，浏览器最高兼容性
-        currentPopup = window.open(url, "ReviewWindow", features);
-
+        // 核心：不再 close，而是直接请求新 URL，这样浏览器认为是在更新已有窗口
+        // 如果 currentPopup 已丢失，window.open 会重新建立连接
+        currentPopup = window.open(url, windowName, features);
+        
         if (!currentPopup) {
-            alert("⚠️ 弹窗被拦截！\n请点击浏览器地址栏右侧的'窗口拦截'图标并允许。");
-            finish();
+            alert("弹窗被拦截！请务必检查地址栏右侧并允许弹出窗口。");
+            isRunning = false;
             return;
         }
 
-        // 尝试让窗口获得焦点
-        try { currentPopup.focus(); } catch (e) {}
-
         document.getElementById('urlDisplay').innerText = url;
+        
+        // UI 状态同步
         document.querySelectorAll('tr').forEach(r => r.classList.remove('active'));
         const row = document.getElementById(`row-${currentIndex}`);
-        if (row) { row.classList.add('active'); row.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        if (row) {
+            row.classList.add('active');
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
         
         currentIndex++;
         renderTable();
@@ -217,39 +225,47 @@
         document.getElementById('downloadBtn').style.display = 'block';
     }
 
-    document.getElementById('downloadBtn').addEventListener('click', function() {
-        const newSheet = XLSX.utils.json_to_sheet(rawData);
-        const newWorkbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(newWorkbook, newSheet, "Result");
-        XLSX.writeFile(newWorkbook, currentFileName);
-    });
-
-    document.getElementById('startBtn').addEventListener('click', () => {
+    // 事件绑定
+    document.getElementById('startBtn').addEventListener('click', (e) => {
         isRunning = true;
         if (currentIndex >= links.length) currentIndex = 0; 
         document.getElementById('rightOverlay').style.display = 'flex';
         document.getElementById('startBtn').disabled = true;
-        triggerPopup(); // 直接触发
+        doActionNext(); // 立即执行
     });
 
-    // 绑定点击事件，确保是原始用户触发流
     document.getElementById('nextBtn').addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
-        triggerPopup();
+        doActionNext();
     });
 
-    document.getElementById('markRedBtn').addEventListener('click', (e) => { e.stopPropagation(); markCurrent(); });
-    document.getElementById('stopBtnHand').addEventListener('click', (e) => { e.stopPropagation(); finish(); });
-    
-    // 遮罩层点击切换
-    document.getElementById('rightOverlay').addEventListener('mousedown', (e) => {
-        if (e.target.tagName !== 'BUTTON') triggerPopup();
+    document.getElementById('markRedBtn').addEventListener('click', (e) => {
+        e.stopPropagation(); markCurrent();
+    });
+
+    document.getElementById('stopBtnHand').addEventListener('click', (e) => {
+        e.stopPropagation(); finish();
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', function() {
+        const newSheet = XLSX.utils.json_to_sheet(rawData);
+        const newWorkbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(newWorkbook, newSheet, "审阅结果");
+        XLSX.writeFile(newWorkbook, currentFileName);
     });
 
     // 键盘支持
     window.addEventListener('keydown', (e) => {
         if (isRunning && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault(); triggerPopup();
+            e.preventDefault(); 
+            doActionNext();
+        }
+    });
+
+    // 遮罩层支持 - 使用 click 确保是标准用户意图
+    document.getElementById('rightOverlay').addEventListener('click', (e) => {
+        if (isRunning && e.target.id === 'rightOverlay') {
+            doActionNext();
         }
     });
 </script>
