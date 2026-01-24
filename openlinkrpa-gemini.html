@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v4.4</title>
+    <title>网页审阅工具 v4.5</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -36,48 +36,47 @@
         .progress-wrapper { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 10px; overflow: hidden; }
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
-        /* --- 上传区强化：呼吸 + 醒目文字 --- */
+        /* --- 核心：呼吸灯效果 --- */
         .upload-zone { 
             border: 2.5px dashed #cbd5e1; 
             border-radius: 12px; 
-            padding: 25px 15px; 
+            padding: 30px 15px; 
             text-align: center; 
             cursor: pointer; 
             margin-bottom: 12px;
-            transition: all 0.3s;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             background: #fff;
         }
 
         .upload-pulse {
-            animation: pulse-indigo 2s infinite ease-in-out;
+            animation: pulse-indigo-glow 2.5s infinite;
             border-color: var(--primary);
         }
 
-        @keyframes pulse-indigo {
+        @keyframes pulse-indigo-glow {
             0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.1); background-color: #fff; }
-            50% { box-shadow: 0 0 20px rgba(79, 70, 229, 0.2); background-color: rgba(79, 70, 229, 0.05); }
+            50% { box-shadow: 0 0 25px rgba(79, 70, 229, 0.25); background-color: rgba(79, 70, 229, 0.08); border-color: #6366f1; }
             100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.1); background-color: #fff; }
         }
 
         #fileName { 
-            font-size: 16px; 
-            font-weight: 800; 
+            font-size: 18px; 
+            font-weight: 900; 
             color: var(--primary); 
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        /* --- 向上箭头跳动动画 --- */
-        .bounce-arrow {
             display: inline-block;
-            font-size: 24px;
-            animation: bounce-up 1s infinite;
-            margin-bottom: 5px;
+            margin: 0 10px;
         }
 
-        @keyframes bounce-up {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); }
+        /* --- 星光闪烁动画 --- */
+        .sparkle {
+            display: inline-block;
+            font-size: 20px;
+            animation: sparkle-blink 1.2s infinite ease-in-out;
+        }
+
+        @keyframes sparkle-blink {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
         }
 
         #startBtn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
@@ -114,7 +113,7 @@
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <h3 style="margin: 0;">网页审阅 v4.4</h3>
+        <h3 style="margin: 0;">网页审阅 v4.5</h3>
     </div>
 
     <div class="sidebar-content">
@@ -128,9 +127,12 @@
 
         <div id="setupArea">
             <div id="uploadZone" class="upload-zone upload-pulse" onclick="document.getElementById('fileInput').click()">
-                <div class="bounce-arrow">✨ ⬆️ ✨</div>
-                <div id="fileName">上传 Excel 自动重排</div>
-                <div style="font-size: 11px; color: #94a3b8;">支持 .xlsx, .xls 格式</div>
+                <div style="margin-bottom: 8px;">
+                    <span class="sparkle">✨</span>
+                    <span id="fileName">上传 Excel 自动重排</span>
+                    <span class="sparkle" style="animation-delay: 0.6s;">✨</span>
+                </div>
+                <div style="font-size: 11px; color: #94a3b8;">请点击此处选择数据文件</div>
                 <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
             </div>
             <button id="startBtn" style="width:100%" disabled>请上传excel文件 ⏫</button>
@@ -160,13 +162,13 @@
     document.getElementById('fileInput').onchange = function(e) {
         const file = e.target.files[0]; if(!file) return;
         originalSourceFileName = file.name;
-        document.getElementById('fileName').innerText = file.name;
-        document.getElementById('fileName').style.color = "#475569"; // 恢复正常颜色
         
-        // 文件上传后，移除所有指引动画
+        // 文件上传后，视觉归于平静
         document.getElementById('uploadZone').classList.remove('upload-pulse');
-        const arrow = document.querySelector('.bounce-arrow');
-        if(arrow) arrow.style.display = 'none';
+        document.querySelectorAll('.sparkle').forEach(el => el.style.display = 'none');
+        
+        document.getElementById('fileName').innerText = file.name;
+        document.getElementById('fileName').style.color = "#475569";
         
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
@@ -285,6 +287,7 @@
         const ws = XLSX.utils.json_to_sheet(finalData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "审阅结果");
+        // 文件名规则守则
         const finalFileName = "标记结果-" + originalSourceFileName;
         XLSX.writeFile(wb, finalFileName);
     };
