@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v3.8</title>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <title>网页审阅工具 v3.9</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
             --primary: #4f46e5;
@@ -72,7 +72,7 @@
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <h3 style="margin: 0;">网页审阅 v3.8</h3>
+        <h3 style="margin: 0;">网页审阅 v3.9</h3>
     </div>
 
     <div class="sidebar-content">
@@ -113,7 +113,7 @@
     let isRunning = false, currentPopup = null;
     let originalSourceFileName = "result.xlsx";
 
-    // 载入文件逻辑保持稳定...
+    // 基础逻辑保持稳定
     document.getElementById('fileInput').onchange = function(e) {
         const file = e.target.files[0]; if(!file) return;
         originalSourceFileName = file.name;
@@ -125,14 +125,7 @@
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             rawData = XLSX.utils.sheet_to_json(sheet);
             let urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
-            
-            // 数据预处理逻辑保持稳定 (防爬乱序)
-            links = shuffleByPlatform(rawData.map((row, idx) => ({ 
-                url: row[urlKey], 
-                marked: false, 
-                originalIdx: idx 
-            })));
-            
+            links = shuffleByPlatform(rawData.map((row, idx) => ({ url: row[urlKey], marked: false, originalIdx: idx })));
             document.getElementById('totalNum').innerText = links.length;
             document.getElementById('startBtn').innerText = "🚀 开始顺序审阅";
             document.getElementById('startBtn').disabled = false;
@@ -205,12 +198,12 @@
         const idx = currentIndex - 1;
         if(idx >= 0) {
             links[idx].marked = true;
-            rawData[links[idx].originalIdx]["审阅结果"] = "需关注";
+            // 通过特殊的文案让它在 Excel 中极其醒目
+            rawData[links[idx].originalIdx]["审阅结果"] = "🚩🚩🚩需关注🚩🚩🚩";
             openNext();
         }
     }
 
-    // 事件绑定保持稳定
     document.addEventListener('click', function(e) {
         if (!isRunning) return;
         if (e.target.closest('#markBtn')) { markAndNext(); return; }
@@ -222,44 +215,21 @@
     document.getElementById('startBtn').onclick = (e) => { e.stopPropagation(); startReview(); };
     window.onkeydown = (e) => { if (isRunning) openNext(); };
 
-    // --- 核心优化：导出时红色标记 ---
+    // --- 稳健导出逻辑：确保下载按钮 100% 可用 ---
     document.getElementById('downloadBtn').onclick = () => {
-        // 1. 创建工作表
-        const ws = XLSX.utils.json_to_sheet(rawData);
-        
-        // 2. 遍历单元格，应用样式
-        // 获取所有单元格范围
-        const range = XLSX.utils.decode_range(ws['!ref']);
-        
-        // 找出“审阅结果”这一列的索引
-        const headers = Array.from({length: range.e.c + 1}, (_, i) => ws[XLSX.utils.encode_col(i) + "1"]?.v);
-        const markerColIndex = headers.indexOf("审阅结果");
-
-        for (let R = range.s.r; R <= range.e.r; ++R) {
-            // 检查这一行是否被标记（查看“审阅结果”列的值）
-            const markerCellAddress = XLSX.utils.encode_cell({c: markerColIndex, r: R});
-            const isMarked = ws[markerCellAddress] && ws[markerCellAddress].v === "需关注";
-
-            if (isMarked) {
-                // 如果被标记，将该行所有单元格变为红色
-                for (let C = range.s.c; C <= range.e.c; ++C) {
-                    const address = XLSX.utils.encode_cell({c: C, r: R});
-                    if (!ws[address]) continue;
-                    
-                    // 注入样式属性
-                    ws[address].s = {
-                        font: { color: { rgb: "FF0000" }, bold: true }
-                    };
-                }
-            }
+        try {
+            const ws = XLSX.utils.json_to_sheet(rawData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Result");
+            
+            // 严守规则：标记结果-源文件名
+            const finalFileName = "标记结果-" + originalSourceFileName;
+            
+            // 使用官方最兼容的写入方法
+            XLSX.writeFile(wb, finalFileName);
+        } catch (error) {
+            alert("下载失败，请尝试刷新页面重试。错误原因：" + error.message);
         }
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Result");
-        
-        // 严守规则：标记结果-源文件名
-        const finalFileName = "标记结果-" + originalSourceFileName;
-        XLSX.writeEx(wb, finalFileName, { type: "file", bookType: "xlsx" });
     };
 </script>
 
