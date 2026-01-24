@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v4.9.8</title>
+    <title>网页审阅工具 v4.9.9</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #4f46e5; --danger: #ef4444; --sidebar-width: 400px; }
@@ -16,7 +16,6 @@
         .sidebar-header { padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; flex-shrink: 0; }
         .sidebar-content { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
 
-        /* 统计卡片：对称且常驻 */
         .stat-container { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; position: relative; z-index: 10; }
         .stat-box { display: flex; gap: 10px; justify-content: space-between; }
         .stat-card { flex: 1; text-align: center; background: #f8fafc; padding: 12px 5px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -27,7 +26,6 @@
         .progress-wrapper { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 12px; overflow: hidden; }
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
-        /* 遮罩层：下移避开统计区 */
         #reviewOverlay { 
             display: none; 
             position: absolute; 
@@ -64,13 +62,13 @@
 <div class="main-view">
     <div style="text-align: center;">
         <div style="font-size: 50px; margin-bottom: 20px; opacity: 0.3;">🖥️</div>
-        <div style="font-weight: 500;">审阅内容将在弹出窗口显示</div>
+        <div style="font-weight: 500;">新纪录将自动强制置顶显示</div>
     </div>
 </div>
 
 <div class="sidebar-wrapper">
     <div class="sidebar">
-        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v4.9.8</h3></div>
+        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v4.9.9</h3></div>
         <div class="sidebar-content">
             <div class="stat-container">
                 <div class="stat-box">
@@ -87,7 +85,7 @@
             </div>
 
             <div id="reviewOverlay">
-                <div style="color: #818cf8; font-size: 11px; margin-bottom: 20px;">点击按钮/按键 自动切换记录</div>
+                <div style="color: #818cf8; font-size: 11px; margin-bottom: 20px;">点击按钮强制置顶下一条</div>
                 <div class="btn-group">
                     <button class="action-btn btn-mark" id="markBtn">🚩 标记并下一条</button>
                     <button class="action-btn btn-next" id="nextBtn">直接下一条</button>
@@ -164,30 +162,32 @@
 
     function openNext() {
         if (!isRunning) return;
+        
         if (entryTime && currentIndex > 0) {
             const lastIdx = currentIndex - 1;
             links[lastIdx].duration += Math.round((Date.now() - entryTime) / 1000);
             rawData[links[lastIdx].originalIdx]["审阅时长"] = links[lastIdx].duration + "秒";
         }
+
         if (currentIndex >= links.length) { stopReview(); return; }
         
         const url = links[currentIndex].url;
         const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0`;
         
-        // 核心聚焦修复：先判断是否存在且未关闭
+        // --- 终极置顶策略：销毁重建 ---
         if (currentPopup && !currentPopup.closed) {
-            currentPopup.location.replace(url);
-            // 重点：在 replace 后立即强制 focus 一次
-            currentPopup.focus();
-        } else {
-            currentPopup = window.open(url, "ReviewWindow", features);
+            currentPopup.close(); // 强制关闭当前窗口
         }
+        
+        // 瞬间重新打开新窗口，操作系统会自动将其排在最前
+        currentPopup = window.open(url, "ReviewWindow", features);
 
         localStorage.setItem('progress_' + originalSourceFileName, currentIndex);
         
-        // 强力补丁：双重延迟聚焦，确保窗口跳至顶层
-        setTimeout(() => { if(currentPopup) currentPopup.focus(); }, 150);
-        setTimeout(() => { if(currentPopup) currentPopup.focus(); }, 350);
+        // 辅助聚焦
+        if (currentPopup) {
+            currentPopup.focus();
+        }
 
         entryTime = Date.now();
         currentIndex++;
