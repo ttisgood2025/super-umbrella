@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v4.1</title>
+    <title>网页审阅工具 v4.2</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -45,11 +45,17 @@
         tr.active { background: #eff6ff; font-weight: bold; }
         tr.marked td { color: var(--danger); font-weight: bold; }
 
-        /* --- 修正：遮罩层改为 top: 0 覆盖全区 --- */
+        /* --- 修正目标：刚好遮盖住文件上传及下方区域，避开上方统计卡片 --- */
         #reviewOverlay {
-            display: none; position: absolute; left: 0; right: 0; bottom: 0; top: 0; 
-            background: rgba(15, 23, 42, 0.95); z-index: 600;
-            flex-direction: column; align-items: center; justify-content: center;
+            display: none; 
+            position: absolute; 
+            left: 0; right: 0; bottom: 0; 
+            top: 155px; /* 精准定位：起始于统计卡片下方，完全遮盖上传区边缘 */
+            background: rgba(15, 23, 42, 0.95); 
+            z-index: 600;
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center;
         }
 
         .btn-group { display: flex; flex-direction: column; gap: 15px; width: 80%; }
@@ -73,7 +79,7 @@
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <h3 style="margin: 0;">网页审阅 v4.1</h3>
+        <h3 style="margin: 0;">网页审阅 v4.2</h3>
     </div>
 
     <div class="sidebar-content">
@@ -235,7 +241,7 @@
         const ws = XLSX.utils.json_to_sheet(finalData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "审阅结果");
-        // 遵守记忆规则：标记结果-源文件名
+        // 守则：标记结果-源文件名
         const finalFileName = "标记结果-" + originalSourceFileName;
         XLSX.writeFile(wb, finalFileName);
     };
