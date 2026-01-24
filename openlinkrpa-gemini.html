@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v4.9.7</title>
+    <title>网页审阅工具 v4.9.8</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #4f46e5; --danger: #ef4444; --sidebar-width: 400px; }
@@ -11,13 +11,12 @@
         body { font-family: 'PingFang SC', system-ui, sans-serif; background-color: #f8fafc; display: flex; }
 
         .main-view { flex: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1; background: #f1f5f9; position: relative; }
-        
         .sidebar-wrapper { width: var(--sidebar-width); height: 100vh; position: relative; flex-shrink: 0; }
         .sidebar { width: 100%; height: 100%; background: white; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; }
         .sidebar-header { padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; flex-shrink: 0; }
         .sidebar-content { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
 
-        /* 统计卡片：对称美化且不被遮挡 */
+        /* 统计卡片：对称且常驻 */
         .stat-container { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; position: relative; z-index: 10; }
         .stat-box { display: flex; gap: 10px; justify-content: space-between; }
         .stat-card { flex: 1; text-align: center; background: #f8fafc; padding: 12px 5px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -28,12 +27,12 @@
         .progress-wrapper { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 12px; overflow: hidden; }
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
-        /* --- 核心修复：操作遮罩层纵向缩小，不再遮挡统计区 --- */
+        /* 遮罩层：下移避开统计区 */
         #reviewOverlay { 
             display: none; 
             position: absolute; 
             left: 0; 
-            top: 155px; /* 下移起始位置，确保不遮挡上方的 stat-container */
+            top: 155px; 
             right: 0;
             bottom: 0; 
             background: rgba(15, 23, 42, 0.96); 
@@ -43,7 +42,13 @@
             justify-content: center; 
         }
 
-        .upload-zone { border: 2.5px dashed #cbd5e1; border-radius: 12px; padding: 25px 15px; text-align: center; cursor: pointer; margin-bottom: 12px; background: #fff; }
+        .btn-group { display: flex; flex-direction: column; gap: 12px; width: 85%; }
+        .action-btn { padding: 20px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn-mark { background: var(--danger); color: white; }
+        .btn-next { background: white; color: #1e293b; }
+        .btn-stop { background: transparent; color: #94a3b8; border: 1px solid #475569; margin-top: 10px; font-size: 14px; }
+
+        .upload-zone { border: 2.5px dashed #cbd5e1; border-radius: 12px; padding: 25px 15px; text-align: center; cursor: pointer; margin-bottom: 12px; }
         #startBtn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; }
         #downloadBtn { width: 100%; display: none; background: #10b981; color: white; margin-top: 10px; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
@@ -52,12 +57,6 @@
         td { padding: 10px; border-bottom: 1px solid #f8fafc; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         tr.active { background: #eff6ff; font-weight: bold; color: var(--primary); }
         tr.marked td { color: var(--danger); font-weight: bold; }
-
-        .btn-group { display: flex; flex-direction: column; gap: 12px; width: 85%; }
-        .action-btn { padding: 20px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
-        .btn-mark { background: var(--danger); color: white; }
-        .btn-next { background: white; color: #1e293b; }
-        .btn-stop { background: transparent; color: #94a3b8; border: 1px solid #475569; margin-top: 10px; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -65,13 +64,13 @@
 <div class="main-view">
     <div style="text-align: center;">
         <div style="font-size: 50px; margin-bottom: 20px; opacity: 0.3;">🖥️</div>
-        <div style="font-weight: 500;">审阅窗口已在弹窗中打开</div>
+        <div style="font-weight: 500;">审阅内容将在弹出窗口显示</div>
     </div>
 </div>
 
 <div class="sidebar-wrapper">
     <div class="sidebar">
-        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v4.9.7</h3></div>
+        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v4.9.8</h3></div>
         <div class="sidebar-content">
             <div class="stat-container">
                 <div class="stat-box">
@@ -88,7 +87,7 @@
             </div>
 
             <div id="reviewOverlay">
-                <div style="color: #818cf8; font-size: 11px; margin-bottom: 20px;">点击/按键均可翻页</div>
+                <div style="color: #818cf8; font-size: 11px; margin-bottom: 20px;">点击按钮/按键 自动切换记录</div>
                 <div class="btn-group">
                     <button class="action-btn btn-mark" id="markBtn">🚩 标记并下一条</button>
                     <button class="action-btn btn-next" id="nextBtn">直接下一条</button>
@@ -98,13 +97,12 @@
 
             <div id="setupArea">
                 <div id="uploadZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
-                    <div style="margin-bottom: 6px;"><span id="fileName">上传 Excel 开始审阅</span></div>
+                    <div style="margin-bottom: 6px;"><span id="fileName">上传 Excel 恢复进度</span></div>
                     <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
                 </div>
                 <button id="startBtn" disabled>请上传文件</button>
                 <button id="downloadBtn">📥 下载标记结果</button>
             </div>
-
             <div class="list-container"><table id="urlTable"></table></div>
         </div>
     </div>
@@ -120,7 +118,6 @@
         const file = e.target.files[0]; if(!file) return;
         originalSourceFileName = file.name;
         document.getElementById('fileName').innerText = file.name;
-        
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
@@ -176,11 +173,22 @@
         
         const url = links[currentIndex].url;
         const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0`;
-        if (currentPopup && !currentPopup.closed) { currentPopup.location.replace(url); } 
-        else { currentPopup = window.open(url, "ReviewWindow", features); }
+        
+        // 核心聚焦修复：先判断是否存在且未关闭
+        if (currentPopup && !currentPopup.closed) {
+            currentPopup.location.replace(url);
+            // 重点：在 replace 后立即强制 focus 一次
+            currentPopup.focus();
+        } else {
+            currentPopup = window.open(url, "ReviewWindow", features);
+        }
 
         localStorage.setItem('progress_' + originalSourceFileName, currentIndex);
-        setTimeout(() => { if(currentPopup) currentPopup.focus(); }, 180);
+        
+        // 强力补丁：双重延迟聚焦，确保窗口跳至顶层
+        setTimeout(() => { if(currentPopup) currentPopup.focus(); }, 150);
+        setTimeout(() => { if(currentPopup) currentPopup.focus(); }, 350);
+
         entryTime = Date.now();
         currentIndex++;
         renderTable();
