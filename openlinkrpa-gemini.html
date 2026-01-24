@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v3.5</title>
+    <title>网页审阅工具 v3.6</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -72,7 +72,7 @@
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <h3 style="margin: 0;">网页审阅 v3.5</h3>
+        <h3 style="margin: 0;">网页审阅 v3.6</h3>
     </div>
 
     <div class="sidebar-content">
@@ -111,7 +111,7 @@
 <script>
     let rawData = [], links = [], currentIndex = 0;
     let isRunning = false, currentPopup = null;
-    let originalSourceFileName = "result.xlsx"; // 用于存储原始文件名
+    let originalSourceFileName = "result.xlsx";
 
     function shuffleByPlatform(items) {
         const groups = {};
@@ -129,7 +129,7 @@
 
     document.getElementById('fileInput').onchange = function(e) {
         const file = e.target.files[0]; if(!file) return;
-        originalSourceFileName = file.name; // 记录源文件名
+        originalSourceFileName = file.name;
         document.getElementById('fileName').innerText = file.name;
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
@@ -185,13 +185,21 @@
         openNext();
     }
 
+    // --- 核心修复：中止时自动关闭弹窗 ---
     function stopReview() {
         isRunning = false;
+        
+        // 显式关闭已打开的审阅窗口
+        if (currentPopup && !currentPopup.closed) {
+            currentPopup.close();
+            currentPopup = null; // 清空句柄
+        }
+
         document.getElementById('reviewOverlay').style.display = 'none';
         document.getElementById('mainBody').classList.remove('reviewing');
         document.getElementById('globalHint').style.opacity = '0';
         document.getElementById('startBtn').disabled = false;
-        document.getElementById('startBtn').innerText = "继续审阅";
+        document.getElementById('startBtn').innerText = currentIndex >= links.length ? "重新审阅" : "继续审阅";
         document.getElementById('downloadBtn').style.display = 'block';
     }
 
@@ -204,7 +212,6 @@
         }
     }
 
-    // 全局点击逻辑
     document.addEventListener('click', function(e) {
         if (!isRunning) return;
         if (e.target.closest('#markBtn')) { markItem(); return; }
@@ -216,12 +223,11 @@
     document.getElementById('startBtn').onclick = (e) => { e.stopPropagation(); startReview(); };
     window.onkeydown = (e) => { if (isRunning) openNext(); };
 
-    // --- 核心修正：严守文件名规则 ---
     document.getElementById('downloadBtn').onclick = () => {
         const ws = XLSX.utils.json_to_sheet(rawData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Result");
-        // 规则：标记结果 + 源文件名
+        // 严格遵守规则：标记结果 + 源文件名
         const finalFileName = "标记结果" + originalSourceFileName;
         XLSX.writeFile(wb, finalFileName);
     };
