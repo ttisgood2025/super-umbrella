@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v3.4</title>
+    <title>网页审阅工具 v3.5</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -13,10 +13,8 @@
 
         body { font-family: 'PingFang SC', system-ui, sans-serif; background-color: #f8fafc; margin: 0; display: flex; height: 100vh; overflow: hidden; cursor: default; }
 
-        /* 左侧提示区 */
         .main-view { flex-grow: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1; position: relative; }
 
-        /* 右侧面板 */
         .sidebar {
             width: var(--sidebar-width); height: 100%; background: white; border-left: 1px solid #e2e8f0;
             display: flex; flex-direction: column; position: relative; z-index: 100;
@@ -26,7 +24,6 @@
 
         .sidebar-content { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
 
-        /* 统计区 */
         .stat-container {
             background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;
@@ -39,19 +36,15 @@
         .progress-wrapper { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 10px; overflow: hidden; }
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
-        /* 文件上传 */
         .upload-zone { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 15px; text-align: center; cursor: pointer; margin-bottom: 10px; }
-        #startBtn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
-        #startBtn:active { transform: scale(0.98); }
+        #startBtn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
-        /* 列表 */
         .list-container { flex-grow: 1; overflow-y: auto; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
         td { padding: 10px; border-bottom: 1px solid #f1f5f9; color: #475569; }
         tr.active { background: #eff6ff; font-weight: bold; }
         tr.marked td { color: var(--danger); font-weight: bold; }
 
-        /* 遮罩层 */
         #reviewOverlay {
             display: none; position: absolute; left: 0; right: 0; bottom: 0; top: 165px; 
             background: rgba(15, 23, 42, 0.95); z-index: 400;
@@ -60,11 +53,10 @@
 
         .btn-group { display: flex; flex-direction: column; gap: 15px; width: 80%; }
         .action-btn { padding: 18px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
-        .btn-next { background: white; color: #1e293b; border: 2px solid transparent; }
+        .btn-next { background: white; color: #1e293b; }
         .btn-mark { background: var(--danger); color: white; }
         .btn-stop { background: transparent; color: #64748b; border: 1px solid #475569; margin-top: 10px; }
 
-        /* 全局状态提示：审阅中鼠标样式 */
         body.reviewing { cursor: pointer; }
     </style>
 </head>
@@ -80,7 +72,7 @@
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <h3 style="margin: 0;">网页审阅 v3.4</h3>
+        <h3 style="margin: 0;">网页审阅 v3.5</h3>
     </div>
 
     <div class="sidebar-content">
@@ -119,6 +111,7 @@
 <script>
     let rawData = [], links = [], currentIndex = 0;
     let isRunning = false, currentPopup = null;
+    let originalSourceFileName = "result.xlsx"; // 用于存储原始文件名
 
     function shuffleByPlatform(items) {
         const groups = {};
@@ -136,6 +129,8 @@
 
     document.getElementById('fileInput').onchange = function(e) {
         const file = e.target.files[0]; if(!file) return;
+        originalSourceFileName = file.name; // 记录源文件名
+        document.getElementById('fileName').innerText = file.name;
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
@@ -145,7 +140,7 @@
             let urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
             links = shuffleByPlatform(rawData.map((row, idx) => ({ url: row[urlKey], marked: false, originalIdx: idx })));
             document.getElementById('totalNum').innerText = links.length;
-            document.getElementById('startBtn').innerText = "🚀 开始审阅";
+            document.getElementById('startBtn').innerText = "🚀 开始顺序审阅";
             document.getElementById('startBtn').disabled = false;
             renderTable();
         };
@@ -166,7 +161,6 @@
         const url = links[currentIndex].url;
         const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0`;
         
-        // 核心弹窗逻辑：
         if (currentPopup && !currentPopup.closed) {
             currentPopup.location.replace(url);
             try { currentPopup.focus(); } catch(e) {}
@@ -210,35 +204,26 @@
         }
     }
 
-    // --- 全局点击监听 ---
+    // 全局点击逻辑
     document.addEventListener('click', function(e) {
         if (!isRunning) return;
-
-        // 1. 如果点击的是标记或中止按钮，执行对应功能逻辑
-        if (e.target.closest('#markBtn')) {
-            markItem();
-            return;
-        }
-        if (e.target.closest('#stopBtn')) {
-            stopReview();
-            return;
-        }
-
-        // 2. 如果点击的是文件上传或开始按钮区域（虽然此时它们通常被遮挡），也跳过
+        if (e.target.closest('#markBtn')) { markItem(); return; }
+        if (e.target.closest('#stopBtn')) { stopReview(); return; }
         if (e.target.closest('#setupArea')) return;
-
-        // 3. 其余所有区域的点击，全部视为“切换下一条”
         openNext();
-    }, true); // 使用捕获模式确保第一时间响应
+    }, true);
 
     document.getElementById('startBtn').onclick = (e) => { e.stopPropagation(); startReview(); };
     window.onkeydown = (e) => { if (isRunning) openNext(); };
 
+    // --- 核心修正：严守文件名规则 ---
     document.getElementById('downloadBtn').onclick = () => {
         const ws = XLSX.utils.json_to_sheet(rawData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Result");
-        XLSX.writeFile(wb, "审阅结果.xlsx");
+        // 规则：标记结果 + 源文件名
+        const finalFileName = "标记结果" + originalSourceFileName;
+        XLSX.writeFile(wb, finalFileName);
     };
 </script>
 
