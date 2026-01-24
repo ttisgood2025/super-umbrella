@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v2.8 (修复继续审阅Bug)</title>
+    <title>网页审阅工具 v2.9 (弹窗强化版)</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -70,12 +70,12 @@
 <body>
 
 <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-size: 18px;">
-    ← 审阅内容将在左侧弹出
+    ← 审阅窗口将在左侧打开
 </div>
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <div style="font-size: 11px; opacity: 0.8;">v2.8 Bug Fixed Mode</div>
+        <div style="font-size: 11px; opacity: 0.8;">v2.9 Ultimate Mode</div>
         <h2 style="margin: 4px 0 0 0;">审阅结果工作台</h2>
     </div>
 
@@ -95,12 +95,12 @@
         </div>
 
         <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-            <div id="fileName" style="font-size: 13px; font-weight: 600; color: #64748b;">选择 Excel 自动重排</div>
+            <div id="fileName" style="font-size: 13px; font-weight: 600; color: #64748b;">选择 Excel 开始</div>
             <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
         </div>
 
         <button id="startBtn" disabled>等待载入数据</button>
-        <button id="downloadBtn">📥 下载已标记的 Excel 结果</button>
+        <button id="downloadBtn">📥 下载结果 (.xlsx)</button>
 
         <div class="list-container">
             <table><tbody id="urlTable"></tbody></table>
@@ -109,17 +109,17 @@
         <div id="rightOverlay">
             <div id="urlDisplay" style="font-size: 11px; color: #818cf8; margin-bottom: 20px; padding: 0 20px; text-align: center; word-break: break-all;"></div>
             <div class="btn-group">
-                <button class="action-btn btn-mark" id="markRedBtn">🚩 标记该条记录 (红字)</button>
-                <button class="action-btn btn-next" id="nextBtn">切换下一条 (或按任意键)</button>
-                <button class="action-btn btn-stop" id="stopBtnHand">中止并保存结果</button>
+                <button class="action-btn btn-mark" id="markRedBtn">🚩 标记该条记录</button>
+                <button class="action-btn btn-next" id="nextBtn">下一条 (Space/Enter)</button>
+                <button class="action-btn btn-stop" id="stopBtnHand">中止并保存</button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    let rawData = []; let links = []; let currentIndex = 0;
-    let isRunning = false; let currentPopup = null; let currentFileName = "result.xlsx";
+    let rawData = [], links = [], currentIndex = 0;
+    let isRunning = false, currentPopup = null, currentFileName = "result.xlsx";
 
     function shuffleByPlatform(items) {
         const groups = {};
@@ -138,10 +138,8 @@
 
     document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0]; if (!file) return;
-        const btn = document.getElementById('startBtn');
-        const fileNameDisplay = document.getElementById('fileName');
-        fileNameDisplay.innerText = "处理中...";
-        currentFileName = "标记结果_" + file.name;
+        document.getElementById('fileName').innerText = "加载中...";
+        currentFileName = "审阅结果_" + file.name;
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
@@ -152,11 +150,12 @@
                 let urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
                 if (!urlKey) { alert("未找到网址列"); return; }
                 links = shuffleByPlatform(rawData.map((row, idx) => ({ url: row[urlKey], marked: false, originalIdx: idx })));
-                currentIndex = 0; // 只有新文件加载才重置索引
+                currentIndex = 0;
                 renderTable();
-                fileNameDisplay.innerText = file.name;
+                document.getElementById('fileName').innerText = file.name;
                 document.getElementById('totalNum').innerText = links.length;
-                btn.innerText = "🚀 开始顺序审阅"; btn.disabled = false;
+                document.getElementById('startBtn').innerText = "🚀 开始顺序审阅";
+                document.getElementById('startBtn').disabled = false;
             } catch (err) { alert("解析失败"); }
         };
     });
@@ -170,28 +169,27 @@
         document.getElementById('urlTable').innerHTML = html;
         document.getElementById('markedNum').innerText = links.filter(l => l.marked).length;
         document.getElementById('currentProgNum').innerText = currentIndex;
-        const prog = links.length > 0 ? (currentIndex / links.length) * 100 : 0;
-        document.getElementById('progressBar').style.width = prog + "%";
+        document.getElementById('progressBar').style.width = (links.length > 0 ? (currentIndex / links.length) * 100 : 0) + "%";
     }
 
-    function openNext() {
+    // --- 极简加固弹窗函数 ---
+    function triggerPopup() {
         if (currentIndex >= links.length) { finish(); return; }
-        
-        // 关键修复：每次打开新窗口都使用一个独有的句柄名称
-        const popupName = "ReviewWindow_" + currentIndex;
-        const sidebarWidth = 400;
-        const screenW = window.screen.availWidth;
-        const screenH = window.screen.availHeight;
-        const features = `width=${screenW - sidebarWidth},height=${screenH},top=0,left=0,resizable=yes,scrollbars=yes`;
-
-        // 关闭旧的
-        if (currentPopup && !currentPopup.closed) { currentPopup.close(); }
 
         const url = links[currentIndex].url;
-        // 关键点：句柄名用 popupName 避免浏览器复用导致失效
-        currentPopup = window.open(url, popupName, features);
-        
-        if (!currentPopup) { alert("弹窗被阻止！"); finish(); return; }
+        const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0,resizable=yes,scrollbars=yes`;
+
+        // 不关闭，直接在同一个句柄名下打开，浏览器最高兼容性
+        currentPopup = window.open(url, "ReviewWindow", features);
+
+        if (!currentPopup) {
+            alert("⚠️ 弹窗被拦截！\n请点击浏览器地址栏右侧的'窗口拦截'图标并允许。");
+            finish();
+            return;
+        }
+
+        // 尝试让窗口获得焦点
+        try { currentPopup.focus(); } catch (e) {}
 
         document.getElementById('urlDisplay').innerText = url;
         document.querySelectorAll('tr').forEach(r => r.classList.remove('active'));
@@ -217,31 +215,43 @@
         document.getElementById('startBtn').innerText = (currentIndex >= links.length) ? "重新审阅" : "继续审阅";
         document.getElementById('startBtn').disabled = false;
         document.getElementById('downloadBtn').style.display = 'block';
-        if (currentPopup && !currentPopup.closed) currentPopup.close();
-        renderTable();
     }
 
     document.getElementById('downloadBtn').addEventListener('click', function() {
         const newSheet = XLSX.utils.json_to_sheet(rawData);
         const newWorkbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(newWorkbook, newSheet, "审阅结果");
+        XLSX.utils.book_append_sheet(newWorkbook, newSheet, "Result");
         XLSX.writeFile(newWorkbook, currentFileName);
     });
 
     document.getElementById('startBtn').addEventListener('click', () => {
         isRunning = true;
-        // 核心修复：如果还没审阅完，不要把索引重置为0
         if (currentIndex >= links.length) currentIndex = 0; 
         document.getElementById('rightOverlay').style.display = 'flex';
         document.getElementById('startBtn').disabled = true;
-        openNext();
+        triggerPopup(); // 直接触发
+    });
+
+    // 绑定点击事件，确保是原始用户触发流
+    document.getElementById('nextBtn').addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        triggerPopup();
     });
 
     document.getElementById('markRedBtn').addEventListener('click', (e) => { e.stopPropagation(); markCurrent(); });
-    document.getElementById('nextBtn').addEventListener('click', (e) => { e.stopPropagation(); openNext(); });
     document.getElementById('stopBtnHand').addEventListener('click', (e) => { e.stopPropagation(); finish(); });
-    window.addEventListener('keydown', (e) => { if (isRunning) openNext(); });
-    document.getElementById('rightOverlay').addEventListener('mousedown', (e) => { if (e.target.tagName !== 'BUTTON') openNext(); });
+    
+    // 遮罩层点击切换
+    document.getElementById('rightOverlay').addEventListener('mousedown', (e) => {
+        if (e.target.tagName !== 'BUTTON') triggerPopup();
+    });
+
+    // 键盘支持
+    window.addEventListener('keydown', (e) => {
+        if (isRunning && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault(); triggerPopup();
+        }
+    });
 </script>
 
 </body>
