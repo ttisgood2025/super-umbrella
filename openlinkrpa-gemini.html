@@ -2,108 +2,109 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v3.2</title>
+    <title>网页审阅工具 v3.3</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
             --primary: #4f46e5;
-            --danger: #ff0000;
+            --danger: #ef4444;
             --sidebar-width: 400px;
         }
 
-        body {
-            font-family: 'PingFang SC', system-ui, sans-serif;
-            background-color: #f8fafc; margin: 0; display: flex; height: 100vh; overflow: hidden;
-        }
+        body { font-family: 'PingFang SC', system-ui, sans-serif; background-color: #f8fafc; margin: 0; display: flex; height: 100vh; overflow: hidden; }
 
-        /* 侧边栏改为标准垂直布局，彻底放弃复杂的 Overlay 覆盖 */
+        /* 右侧面板 */
         .sidebar {
-            width: var(--sidebar-width); height: 100%;
-            background: white; border-left: 1px solid #e2e8f0;
-            display: flex; flex-direction: column; flex-shrink: 0;
-            box-shadow: -2px 0 10px rgba(0,0,0,0.05);
+            width: var(--sidebar-width); height: 100%; background: white; border-left: 1px solid #e2e8f0;
+            display: flex; flex-direction: column; position: relative; z-index: 100;
         }
 
         .sidebar-header { padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; }
 
-        .sidebar-content { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; }
+        .sidebar-content { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
 
-        /* 统计区：始终清晰可见，不再被遮挡 */
+        /* 统计区：确保 z-index 高于遮罩层，永远可点击/可见 */
         .stat-container {
-            background: #f1f5f9; padding: 15px; border-radius: 12px; margin-bottom: 20px;
+            background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;
+            position: relative; z-index: 500; 
         }
         .stat-box { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .stat-card { text-align: center; }
-        .stat-label { font-size: 11px; color: #64748b; display: block; }
-        .stat-num { font-size: 22px; font-weight: bold; color: var(--primary); }
+        .stat-card { text-align: center; background: #f8fafc; padding: 10px; border-radius: 8px; }
+        .stat-label { font-size: 11px; color: #64748b; display: block; margin-bottom: 4px; }
+        .stat-num { font-size: 24px; font-weight: bold; color: var(--primary); }
         .progress-wrapper { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 10px; overflow: hidden; }
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
-        /* 操作按钮区：审阅开始后会切换到这里 */
-        #actionZone { display: none; background: #1e293b; padding: 20px; border-radius: 12px; color: white; margin-bottom: 20px; }
-        .btn-group { display: flex; flex-direction: column; gap: 10px; }
-        
-        .upload-zone { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 15px; text-align: center; cursor: pointer; margin-bottom: 15px; }
-        
-        button {
-            width: 100%; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px;
-        }
-        #startBtn { background: var(--primary); color: white; }
-        #startBtn:disabled { background: #cbd5e1; cursor: not-allowed; }
-        
-        .btn-next { background: white; color: #1e293b; }
-        .btn-mark { background: var(--danger); color: white; }
-        .btn-stop { background: #475569; color: #cbd5e1; margin-top: 5px; padding: 8px; }
+        /* 文件上传区 */
+        .upload-zone { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 15px; text-align: center; cursor: pointer; margin-bottom: 10px; }
+        #startBtn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #startBtn:disabled { background: #cbd5e1; }
 
-        .list-container { flex-grow: 1; overflow-y: auto; border-top: 1px solid #f1f5f9; margin-top: 10px; }
+        /* 审阅列表 */
+        .list-container { flex-grow: 1; overflow-y: auto; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        td { padding: 8px 0; border-bottom: 1px solid #f8fafc; color: #64748b; }
-        tr.active td { color: var(--primary); font-weight: bold; background: #eef2ff; }
-        .marked-red td { color: var(--danger); font-weight: bold; }
+        td { padding: 10px; border-bottom: 1px solid #f1f5f9; word-break: break-all; color: #475569; }
+        tr.active { background: #eff6ff; border-left: 4px solid var(--primary); }
+        tr.marked td { color: var(--danger); font-weight: bold; }
+
+        /* 核心：全域点击遮罩层 */
+        #reviewOverlay {
+            display: none; position: absolute; left: 0; right: 0; bottom: 0; top: 165px; 
+            background: rgba(15, 23, 42, 0.92); z-index: 400;
+            flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; /* 提示用户此处可点 */
+        }
+        #reviewOverlay:active { background: rgba(15, 23, 42, 0.85); }
+
+        .overlay-tips { color: #94a3b8; font-size: 12px; margin-bottom: 20px; }
+        .btn-group { display: flex; flex-direction: column; gap: 15px; width: 80%; pointer-events: auto; }
+        .action-btn { padding: 18px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn-next { background: white; color: #1e293b; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .btn-mark { background: var(--danger); color: white; }
+        .btn-stop { background: transparent; color: #64748b; border: 1px solid #475569; margin-top: 10px; font-size: 13px; }
     </style>
 </head>
 <body>
 
-<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-size: 14px; text-align: center;">
-    <div>
-        <div style="font-size: 40px; margin-bottom: 10px;">📄</div>
-        请在右侧加载文件<br>审阅窗口将在此处弹出
-    </div>
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1;">
+    ← 审阅窗口在此弹出
 </div>
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <h3 style="margin: 0;">网页审阅 v3.2</h3>
+        <h3 style="margin: 0;">网页审阅 v3.3</h3>
     </div>
 
     <div class="sidebar-content">
         <div class="stat-container">
             <div class="stat-box">
-                <div class="stat-card"><span class="stat-label">已看/总数</span><div><span class="stat-num" id="currentProgNum">0</span>/<span id="totalNum" style="color:#94a3b8">0</span></div></div>
+                <div class="stat-card"><span class="stat-label">已看/总数</span><div><span class="stat-num" id="currentProgNum">0</span>/<span id="totalNum">0</span></div></div>
                 <div class="stat-card"><span class="stat-label">已标记</span><span class="stat-num" id="markedNum" style="color:var(--danger)">0</span></div>
             </div>
             <div class="progress-wrapper"><div id="progressBar"></div></div>
         </div>
 
-        <div id="setupZone">
+        <div id="setupArea">
             <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-                <div id="fileName" style="font-size: 12px; color: #64748b;">点击上传 Excel</div>
+                <div id="fileName" style="font-size: 12px; color: #64748b;">上传 Excel 自动重排</div>
                 <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
             </div>
-            <button id="startBtn" disabled>等待载入数据</button>
-            <button id="downloadBtn" style="display:none; background:#10b981; color:white; margin-top:10px;">📥 下载标记结果</button>
-        </div>
-
-        <div id="actionZone">
-            <div class="btn-group">
-                <button class="btn-mark" id="markBtn">🚩 标记该记录</button>
-                <button class="btn-next" id="nextBtn">下一条 (Space/Enter)</button>
-                <button class="btn-stop" id="stopBtn">中止保存</button>
-            </div>
+            <button id="startBtn" style="width:100%" disabled>载入数据中...</button>
+            <button id="downloadBtn" style="width:100%; display:none; background:#10b981; color:white; margin-top:10px; border:none; padding:15px; border-radius:8px; font-weight:bold; cursor:pointer;">📥 下载标记结果</button>
         </div>
 
         <div class="list-container">
-            <table><tbody id="urlTable"></tbody></table>
+            <table id="urlTable"></table>
+        </div>
+
+        <div id="reviewOverlay">
+            <div class="overlay-tips">点击下方或黑色区域切换下一条</div>
+            <div class="btn-group">
+                <button class="action-btn btn-mark" id="markBtn">🚩 标记该条记录</button>
+                <button class="action-btn btn-next" id="nextBtn">切换下一条 (任意键/点击)</button>
+                <button class="action-btn btn-stop" id="stopBtn">中止并保存</button>
+            </div>
         </div>
     </div>
 </div>
@@ -127,10 +128,9 @@
         return sorted;
     }
 
-    // 文件加载
-    document.getElementById('fileInput').addEventListener('change', function(e) {
-        const file = e.target.files[0]; if (!file) return;
-        document.getElementById('fileName').innerText = file.name;
+    // 文件读取
+    document.getElementById('fileInput').onchange = function(e) {
+        const file = e.target.files[0]; if(!file) return;
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
@@ -140,60 +140,57 @@
             let urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
             links = shuffleByPlatform(rawData.map((row, idx) => ({ url: row[urlKey], marked: false, originalIdx: idx })));
             document.getElementById('totalNum').innerText = links.length;
-            document.getElementById('startBtn').innerText = "🚀 开始审阅";
+            document.getElementById('startBtn').innerText = "🚀 开始顺序审阅";
             document.getElementById('startBtn').disabled = false;
             renderTable();
         };
-    });
+    };
 
     function renderTable() {
-        const html = links.map((item, i) => `<tr id="row-${i}" class="${item.marked ? 'marked-red' : ''} ${currentIndex-1 === i ? 'active' : ''}"><td>${i+1}. ${item.url}</td></tr>`).join('');
+        const html = links.map((item, i) => `<tr id="row-${i}" class="${item.marked ? 'marked' : ''} ${currentIndex-1 === i ? 'active' : ''}"><td>${i+1}. ${item.url}</td></tr>`).join('');
         document.getElementById('urlTable').innerHTML = html;
         document.getElementById('markedNum').innerText = links.filter(l => l.marked).length;
         document.getElementById('currentProgNum').innerText = currentIndex;
         document.getElementById('progressBar').style.width = (links.length > 0 ? (currentIndex / links.length) * 100 : 0) + "%";
     }
 
-    // --- 终极弹窗逻辑：不依赖 Overlay，由按钮直接触发 ---
-    function performNext() {
+    // --- 极速触发逻辑 ---
+    function openNext() {
+        if (!isRunning) return;
         if (currentIndex >= links.length) { stopReview(); return; }
 
+        // 1. 【原子操作】第一时间打开/更新窗口，不等待任何逻辑
         const url = links[currentIndex].url;
         const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0`;
         
-        // 如果已存在窗口，先尝试直接在该窗口跳转
         if (currentPopup && !currentPopup.closed) {
-            currentPopup.location.href = url;
-            currentPopup.focus();
+            currentPopup.location.replace(url); // replace 比 href 更快且不留多余历史
+            try { currentPopup.focus(); } catch(e) {}
         } else {
-            // 否则打开新窗口
-            currentPopup = window.open(url, "ReviewWin", features);
+            currentPopup = window.open(url, "ReviewWindow", features);
         }
 
-        if (!currentPopup) {
-            alert("弹窗被浏览器拦截，请在地址栏右侧点击‘允许弹出窗口’。");
-            stopReview();
-            return;
-        }
-
-        currentIndex++;
-        renderTable();
-        const row = document.getElementById(`row-${currentIndex-1}`);
-        if(row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // 2. 窗口打开后，再去处理繁重的 UI 更新
+        setTimeout(() => {
+            currentIndex++;
+            renderTable();
+            const row = document.getElementById(`row-${currentIndex-1}`);
+            if(row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 0);
     }
 
     function startReview() {
         isRunning = true;
-        document.getElementById('setupZone').style.display = 'none';
-        document.getElementById('actionZone').style.display = 'block';
-        performNext();
+        document.getElementById('reviewOverlay').style.display = 'flex';
+        document.getElementById('startBtn').disabled = true;
+        openNext();
     }
 
     function stopReview() {
         isRunning = false;
-        document.getElementById('setupZone').style.display = 'block';
-        document.getElementById('actionZone').style.display = 'none';
-        document.getElementById('startBtn').innerText = currentIndex >= links.length ? "重新审阅" : "继续审阅";
+        document.getElementById('reviewOverlay').style.display = 'none';
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('startBtn').innerText = "继续审阅";
         document.getElementById('downloadBtn').style.display = 'block';
     }
 
@@ -201,23 +198,27 @@
         const idx = currentIndex - 1;
         if(idx >= 0) {
             links[idx].marked = true;
-            rawData[links[idx].originalIdx]["审阅结果"] = "重点关注";
+            rawData[links[idx].originalIdx]["审阅结果"] = "需关注";
             renderTable();
         }
     }
 
-    // 事件监听
+    // 事件绑定：全域点击支持
     document.getElementById('startBtn').onclick = startReview;
-    document.getElementById('nextBtn').onclick = performNext;
-    document.getElementById('markBtn').onclick = markItem;
-    document.getElementById('stopBtn').onclick = stopReview;
-
-    window.onkeydown = (e) => {
-        if (isRunning && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault();
-            performNext();
+    
+    // 关键：点击遮罩层整体即触发下一条
+    document.getElementById('reviewOverlay').onclick = function(e) {
+        // 如果点的不是标记按钮和中止按钮，就切换下一条
+        if (e.target.id !== 'markBtn' && e.target.id !== 'stopBtn') {
+            openNext();
         }
     };
+
+    document.getElementById('markBtn').onclick = (e) => { e.stopPropagation(); markItem(); };
+    document.getElementById('stopBtn').onclick = (e) => { e.stopPropagation(); stopReview(); };
+    
+    // 键盘支持
+    window.onkeydown = (e) => { if (isRunning) openNext(); };
 
     document.getElementById('downloadBtn').onclick = () => {
         const ws = XLSX.utils.json_to_sheet(rawData);
