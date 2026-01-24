@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v5.0.2</title>
+    <title>网页审阅工具 v5.0.3</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #4f46e5; --danger: #ef4444; --sidebar-width: 400px; }
@@ -16,7 +16,7 @@
         .sidebar-header { padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; flex-shrink: 0; }
         .sidebar-content { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
 
-        /* 统计区保持稳定不被遮挡 */
+        /* 统计卡片：保持不被遮挡 */
         .stat-container { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; position: relative; z-index: 10; }
         .stat-box { display: flex; gap: 10px; justify-content: space-between; }
         .stat-card { flex: 1; text-align: center; background: #f8fafc; padding: 12px 5px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -27,7 +27,7 @@
         .progress-wrapper { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 12px; overflow: hidden; }
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
-        /* 遮罩层仅在右侧操作区，且不遮挡统计 */
+        /* 操作区遮罩：纵向缩小，不遮统计 */
         #reviewOverlay { 
             display: none; 
             position: absolute; 
@@ -35,7 +35,7 @@
             top: 155px; 
             right: 0;
             bottom: 0; 
-            background: rgba(15, 23, 42, 0.96); 
+            background: rgba(15, 23, 42, 0.98); 
             z-index: 2000; 
             flex-direction: column; 
             align-items: center; 
@@ -43,9 +43,9 @@
         }
 
         .btn-group { display: flex; flex-direction: column; gap: 12px; width: 85%; }
-        .action-btn { padding: 20px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .action-btn { padding: 22px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
         .btn-mark { background: var(--danger); color: white; }
-        .btn-next { background: white; color: #1e293b; }
+        .btn-next { background: #fff; color: #1e293b; border: 1px solid #e2e8f0; }
         .btn-stop { background: transparent; color: #94a3b8; border: 1px solid #475569; margin-top: 10px; font-size: 14px; }
 
         .upload-zone { border: 2.5px dashed #cbd5e1; border-radius: 12px; padding: 25px 15px; text-align: center; cursor: pointer; margin-bottom: 12px; }
@@ -56,21 +56,20 @@
         table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
         td { padding: 10px; border-bottom: 1px solid #f8fafc; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         tr.active { background: #eff6ff; font-weight: bold; color: var(--primary); }
-        tr.marked td { color: var(--danger); font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="main-view">
     <div style="text-align: center;">
-        <div style="font-size: 50px; margin-bottom: 20px; opacity: 0.3;">🚀</div>
-        <div style="font-weight: 500;">焦点强化模式已启动</div>
+        <div style="font-size: 50px; margin-bottom: 20px; opacity: 0.3;">🔥</div>
+        <div style="font-weight: 500;">深度焦点驱动 v5.0.3 已激活</div>
     </div>
 </div>
 
 <div class="sidebar-wrapper">
     <div class="sidebar">
-        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v5.0.2</h3></div>
+        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v5.0.3</h3></div>
         <div class="sidebar-content">
             <div class="stat-container">
                 <div class="stat-box">
@@ -87,7 +86,6 @@
             </div>
 
             <div id="reviewOverlay">
-                <div style="color: #818cf8; font-size: 11px; margin-bottom: 15px;">焦点已锁定：点击即跳转</div>
                 <div class="btn-group">
                     <button class="action-btn btn-mark" id="markBtn">🚩 标记并下一条</button>
                     <button class="action-btn btn-next" id="nextBtn">直接下一条</button>
@@ -97,10 +95,10 @@
 
             <div id="setupArea">
                 <div id="uploadZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
-                    <div style="margin-bottom: 6px;"><span id="fileName">上传 Excel 开始</span></div>
+                    <div style="margin-bottom: 6px;"><span id="fileName">上传 Excel 文件</span></div>
                     <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
                 </div>
-                <button id="startBtn" disabled>等待文件上传</button>
+                <button id="startBtn" disabled>等待文件</button>
                 <button id="downloadBtn">📥 下载标记结果</button>
             </div>
             <div class="list-container"><table id="urlTable"></table></div>
@@ -114,45 +112,72 @@
     let originalSourceFileName = "";
     let entryTime = null;
 
-    // --- 核心修复：绝对置顶跳转 ---
-    function openNext() {
-        if (!isRunning || currentIndex >= links.length) {
-            if (isRunning) stopReview();
-            return;
-        }
-
+    // --- 【杀手锏】核心弹出逻辑，绝对禁止包含任何计算 ---
+    function forceJump() {
+        if (!isRunning || currentIndex >= links.length) return;
         const url = links[currentIndex].url;
         const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0`;
-
-        // 【第一步：抢占焦点】必须在所有逻辑之前执行，抢在 100ms 黄金期内
-        if (currentPopup && !currentPopup.closed) {
+        
+        // 策略：先强行打开/聚焦窗口，不带任何业务参数
+        if (!currentPopup || currentPopup.closed) {
+            currentPopup = window.open('about:blank', 'ReviewWindow', features);
+        }
+        
+        if (currentPopup) {
             currentPopup.focus();
-            currentPopup.location.replace(url);
-        } else {
-            currentPopup = window.open(url, "ReviewWindow", features);
-            if (currentPopup) currentPopup.focus();
+            currentPopup.location.replace(url); // 注入真实地址
+            // 针对极速翻页的二次聚焦补丁
+            setTimeout(() => { if(currentPopup) currentPopup.focus(); }, 100);
+        }
+    }
+
+    // --- 后置业务逻辑：处理数据和 UI ---
+    function processBusiness(isMarking) {
+        if (isMarking && currentIndex > 0) {
+            const idx = currentIndex - 1;
+            links[idx].marked = true;
+            rawData[links[idx].originalIdx]["审阅结果"] = "🚩🚩🚩【重点关注】🚩🚩🚩";
         }
 
-        // 【第二步：补丁置顶】防止某些页面加载时抢夺焦点
-        setTimeout(() => { if (currentPopup) currentPopup.focus(); }, 150);
-        setTimeout(() => { if (currentPopup) currentPopup.focus(); }, 400);
-
-        // 【第三步：处理数据逻辑】这些耗时操作放在后面，不影响第一步的焦点授权
         if (entryTime && currentIndex > 0) {
-            const prevIdx = currentIndex - 1;
-            links[prevIdx].duration += Math.round((Date.now() - entryTime) / 1000);
-            rawData[links[prevIdx].originalIdx]["审阅时长"] = links[prevIdx].duration + "秒";
+            const lastIdx = currentIndex - 1;
+            links[lastIdx].duration += Math.round((Date.now() - entryTime) / 1000);
+            rawData[links[lastIdx].originalIdx]["审阅时长"] = links[lastIdx].duration + "秒";
         }
 
         localStorage.setItem('progress_' + originalSourceFileName, currentIndex);
         entryTime = Date.now();
         currentIndex++;
-        
-        // 渲染 UI (耗时操作)
         renderTable();
+    }
+
+    // --- 界面渲染 ---
+    function renderTable() {
+        const html = links.map((item, i) => `<tr id="row-${i}" class="${item.marked ? 'marked' : ''} ${currentIndex-1 === i ? 'active' : ''}"><td>${i+1}. ${item.url}</td></tr>`).join('');
+        document.getElementById('urlTable').innerHTML = html;
+        document.getElementById('markedNum').innerText = links.filter(l => l.marked).length;
+        document.getElementById('currentProgNum').innerText = currentIndex;
+        document.getElementById('progressBar').style.width = (links.length > 0 ? (currentIndex / links.length) * 100 : 0) + "%";
         const row = document.getElementById(`row-${currentIndex-1}`);
         if(row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+
+    // --- 交互入口：实现“先斩后奏” ---
+    document.addEventListener('click', (e) => {
+        if (!isRunning) return;
+        const btnMark = e.target.closest('#markBtn');
+        const btnNext = e.target.closest('#nextBtn');
+        const btnStop = e.target.closest('#stopBtn');
+
+        if (btnStop) { isRunning = false; if(currentPopup) currentPopup.close(); document.getElementById('reviewOverlay').style.display='none'; document.getElementById('downloadBtn').style.display='block'; return; }
+
+        if (btnMark || btnNext || !e.target.closest('.sidebar')) {
+            // 第一步：先跳窗口（抢占 100ms 黄金期）
+            forceJump();
+            // 第二步：异步处理繁琐的数据存盘和 UI 渲染（不阻塞第一步）
+            setTimeout(() => { processBusiness(!!btnMark); }, 0);
+        }
+    }, true);
 
     document.getElementById('fileInput').onchange = function(e) {
         const file = e.target.files[0]; if(!file) return;
@@ -171,56 +196,25 @@
                 if (confirm(`恢复进度到第 ${parseInt(savedIdx) + 1} 条？`)) currentIndex = parseInt(savedIdx);
             }
             document.getElementById('totalNum').innerText = links.length;
-            document.getElementById('startBtn').innerText = "🚀 开始审阅";
+            document.getElementById('startBtn').innerText = "🚀 开始顺序审阅";
             document.getElementById('startBtn').disabled = false;
             renderTable();
         };
     };
 
-    function renderTable() {
-        const html = links.map((item, i) => `<tr id="row-${i}" class="${item.marked ? 'marked' : ''} ${currentIndex-1 === i ? 'active' : ''}"><td>${i+1}. ${item.url}</td></tr>`).join('');
-        document.getElementById('urlTable').innerHTML = html;
-        document.getElementById('markedNum').innerText = links.filter(l => l.marked).length;
-        document.getElementById('currentProgNum').innerText = currentIndex;
-        document.getElementById('progressBar').style.width = (links.length > 0 ? (currentIndex / links.length) * 100 : 0) + "%";
-    }
-
-    function stopReview() {
-        isRunning = false;
-        if (currentPopup && !currentPopup.closed) currentPopup.close();
-        document.getElementById('reviewOverlay').style.display = 'none';
-        document.getElementById('startBtn').disabled = false;
-        document.getElementById('downloadBtn').style.display = 'block';
-    }
-
-    document.addEventListener('click', (e) => {
-        if (!isRunning) return;
-        const btnMark = e.target.closest('#markBtn');
-        const btnNext = e.target.closest('#nextBtn');
-        const btnStop = e.target.closest('#stopBtn');
-
-        if (btnStop) { stopReview(); return; }
-        if (btnMark) {
-            // 标记当前记录
-            if(currentIndex > 0) {
-                const idx = currentIndex - 1;
-                links[idx].marked = true;
-                rawData[links[idx].originalIdx]["审阅结果"] = "🚩🚩🚩【重点关注】🚩🚩🚩";
-            }
-            openNext();
-            return;
-        }
-        if (btnNext) { openNext(); return; }
-        
-        if (!e.target.closest('.sidebar')) openNext();
-    }, true);
-
     document.getElementById('startBtn').onclick = () => { 
         isRunning = true; 
         document.getElementById('reviewOverlay').style.display = 'flex'; 
-        openNext(); 
+        forceJump();
+        setTimeout(() => { processBusiness(false); }, 0);
     };
-    window.onkeydown = (e) => { if (isRunning) openNext(); };
+
+    window.onkeydown = (e) => { 
+        if (isRunning) {
+            forceJump();
+            setTimeout(() => { processBusiness(false); }, 0);
+        }
+    };
 
     document.getElementById('downloadBtn').onclick = () => {
         const finalData = rawData.map((row, index) => {
