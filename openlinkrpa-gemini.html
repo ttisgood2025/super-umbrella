@@ -2,11 +2,10 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v2.7 (稳定版)</title>
+    <title>网页审阅工具 v2.8 (修复继续审阅Bug)</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
-            /* 还原 v2.2 经典配色 */
             --primary: #4f46e5;
             --danger: #ff0000;
             --sidebar-width: 400px;
@@ -18,7 +17,6 @@
             background-color: var(--bg); margin: 0; display: flex; height: 100vh; overflow: hidden;
         }
 
-        /* 右侧固定控制面板 */
         .sidebar {
             position: absolute; right: 0; top: 0; width: var(--sidebar-width); height: 100%;
             background: white; box-shadow: -5px 0 20px rgba(0,0,0,0.1);
@@ -28,7 +26,6 @@
         .sidebar-header { padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; }
         .sidebar-content { padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; position: relative; }
 
-        /* v2.6 优化的统计常驻区 */
         .stat-container {
             background: white; padding: 15px; border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px;
@@ -39,7 +36,6 @@
         .stat-label { font-size: 11px; color: #64748b; display: block; margin-bottom: 4px; }
         .stat-num { font-size: 22px; font-weight: bold; color: var(--primary); }
         
-        /* 进度条 */
         .progress-wrapper { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 12px; overflow: hidden; }
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
@@ -52,7 +48,6 @@
         #startBtn:disabled { background: #cbd5e1; cursor: not-allowed; }
         #downloadBtn { background: #10b981; color: white; display: none; margin-top: 10px; }
 
-        /* 列表区域 */
         .list-container { margin-top: 15px; border: 1px solid #e2e8f0; border-radius: 8px; flex-grow: 1; overflow-y: auto; background: #fff; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
         td { padding: 10px; border-bottom: 1px solid #f1f5f9; word-break: break-all; }
@@ -60,7 +55,6 @@
         .marked-red { color: var(--danger) !important; font-weight: bold; }
         .mark-tag { font-size: 10px; background: #fee2e2; color: #ef4444; padding: 2px 4px; border-radius: 4px; margin-left: 5px; }
 
-        /* 右侧操作遮罩层 - v2.6 下移逻辑保持 */
         #rightOverlay {
             display: none; position: absolute; left: 0; right: 0; bottom: 0; top: 165px; 
             background: rgba(15, 23, 42, 0.95); z-index: 250;
@@ -76,12 +70,12 @@
 <body>
 
 <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-size: 18px;">
-    ← 审阅内容将在左侧弹出，操作请看右侧
+    ← 审阅内容将在左侧弹出
 </div>
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <div style="font-size: 11px; opacity: 0.8;">v2.7 Stable Mode</div>
+        <div style="font-size: 11px; opacity: 0.8;">v2.8 Bug Fixed Mode</div>
         <h2 style="margin: 4px 0 0 0;">审阅结果工作台</h2>
     </div>
 
@@ -124,44 +118,26 @@
 </div>
 
 <script>
-    let rawData = []; 
-    let links = [];   
-    let currentIndex = 0;
-    let isRunning = false;
-    let currentPopup = null;
-    let currentFileName = "result.xlsx";
+    let rawData = []; let links = []; let currentIndex = 0;
+    let isRunning = false; let currentPopup = null; let currentFileName = "result.xlsx";
 
     function shuffleByPlatform(items) {
         const groups = {};
         items.forEach(item => {
-            try {
-                const domain = new URL(item.url).hostname;
-                if (!groups[domain]) groups[domain] = [];
-                groups[domain].push(item);
-            } catch(e) {
-                if (!groups['others']) groups['others'] = [];
-                groups['others'].push(item);
-            }
+            try { const domain = new URL(item.url).hostname; if (!groups[domain]) groups[domain] = []; groups[domain].push(item); }
+            catch(e) { if (!groups['others']) groups['others'] = []; groups['others'].push(item); }
         });
         Object.values(groups).forEach(g => g.sort(() => Math.random() - 0.5));
-        const sorted = [];
-        const domainList = Object.keys(groups);
-        let hasData = true;
+        const sorted = []; const domainList = Object.keys(groups); let hasData = true;
         while(hasData) {
             hasData = false;
-            domainList.forEach(domain => {
-                if(groups[domain].length > 0) {
-                    sorted.push(groups[domain].shift());
-                    hasData = true;
-                }
-            });
+            domainList.forEach(domain => { if(groups[domain].length > 0) { sorted.push(groups[domain].shift()); hasData = true; } });
         }
         return sorted;
     }
 
     document.getElementById('fileInput').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
+        const file = e.target.files[0]; if (!file) return;
         const btn = document.getElementById('startBtn');
         const fileNameDisplay = document.getElementById('fileName');
         fileNameDisplay.innerText = "处理中...";
@@ -173,19 +149,14 @@
                 const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
                 const sheet = workbook.Sheets[workbook.SheetNames[0]];
                 rawData = XLSX.utils.sheet_to_json(sheet);
-                let urlKey = "";
-                if(rawData.length > 0) {
-                    urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
-                }
+                let urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
                 if (!urlKey) { alert("未找到网址列"); return; }
-                links = shuffleByPlatform(rawData.map((row, idx) => ({
-                    url: row[urlKey], marked: false, originalIdx: idx
-                })));
+                links = shuffleByPlatform(rawData.map((row, idx) => ({ url: row[urlKey], marked: false, originalIdx: idx })));
+                currentIndex = 0; // 只有新文件加载才重置索引
                 renderTable();
                 fileNameDisplay.innerText = file.name;
                 document.getElementById('totalNum').innerText = links.length;
-                btn.innerText = "🚀 开始顺序审阅";
-                btn.disabled = false;
+                btn.innerText = "🚀 开始顺序审阅"; btn.disabled = false;
             } catch (err) { alert("解析失败"); }
         };
     });
@@ -203,40 +174,29 @@
         document.getElementById('progressBar').style.width = prog + "%";
     }
 
-    // 核心修复：确保弹窗逻辑独立且稳定
     function openNext() {
         if (currentIndex >= links.length) { finish(); return; }
         
-        // 1. 关闭上一个弹窗
-        if (currentPopup && !currentPopup.closed) {
-            currentPopup.close();
-        }
-
-        // 2. 准备新窗口参数
+        // 关键修复：每次打开新窗口都使用一个独有的句柄名称
+        const popupName = "ReviewWindow_" + currentIndex;
         const sidebarWidth = 400;
         const screenW = window.screen.availWidth;
         const screenH = window.screen.availHeight;
         const features = `width=${screenW - sidebarWidth},height=${screenH},top=0,left=0,resizable=yes,scrollbars=yes`;
 
-        // 3. 打开新窗口并立即更新索引
+        // 关闭旧的
+        if (currentPopup && !currentPopup.closed) { currentPopup.close(); }
+
         const url = links[currentIndex].url;
-        currentPopup = window.open(url, "ReviewWindow", features);
+        // 关键点：句柄名用 popupName 避免浏览器复用导致失效
+        currentPopup = window.open(url, popupName, features);
         
-        if (!currentPopup) {
-            alert("弹窗被阻止！请在浏览器地址栏右侧点击‘允许弹窗’。");
-            finish();
-            return;
-        }
+        if (!currentPopup) { alert("弹窗被阻止！"); finish(); return; }
 
         document.getElementById('urlDisplay').innerText = url;
-        
-        // 4. UI 联动
         document.querySelectorAll('tr').forEach(r => r.classList.remove('active'));
         const row = document.getElementById(`row-${currentIndex}`);
-        if (row) {
-            row.classList.add('active');
-            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        if (row) { row.classList.add('active'); row.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
         
         currentIndex++;
         renderTable();
@@ -254,10 +214,10 @@
     function finish() {
         isRunning = false;
         document.getElementById('rightOverlay').style.display = 'none';
-        document.getElementById('startBtn').innerText = "继续审阅";
+        document.getElementById('startBtn').innerText = (currentIndex >= links.length) ? "重新审阅" : "继续审阅";
         document.getElementById('startBtn').disabled = false;
         document.getElementById('downloadBtn').style.display = 'block';
-        if (currentPopup) currentPopup.close();
+        if (currentPopup && !currentPopup.closed) currentPopup.close();
         renderTable();
     }
 
@@ -269,7 +229,9 @@
     });
 
     document.getElementById('startBtn').addEventListener('click', () => {
-        isRunning = true; currentIndex = 0;
+        isRunning = true;
+        // 核心修复：如果还没审阅完，不要把索引重置为0
+        if (currentIndex >= links.length) currentIndex = 0; 
         document.getElementById('rightOverlay').style.display = 'flex';
         document.getElementById('startBtn').disabled = true;
         openNext();
