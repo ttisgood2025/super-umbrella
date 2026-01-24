@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v4.9.5</title>
+    <title>网页审阅工具 v4.9.6</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #4f46e5; --danger: #ef4444; --sidebar-width: 400px; }
@@ -10,15 +10,25 @@
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }
         body { font-family: 'PingFang SC', system-ui, sans-serif; background-color: #f8fafc; display: flex; }
 
-        /* 主视图：占据剩余空间 */
-        .main-view { flex: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1; background: #f1f5f9; position: relative; z-index: 1; }
+        /* 左侧：主视图 */
+        .main-view { flex: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1; background: #f1f5f9; position: relative; }
         
-        /* 侧边栏：固定宽度 */
-        .sidebar { width: var(--sidebar-width); height: 100vh; background: white; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; flex-shrink: 0; z-index: 1000; position: relative; }
+        /* 右侧：侧边栏容器 */
+        .sidebar-wrapper { width: var(--sidebar-width); height: 100vh; position: relative; flex-shrink: 0; }
+        
+        .sidebar { 
+            width: 100%; 
+            height: 100%; 
+            background: white; 
+            border-left: 1px solid #e2e8f0; 
+            display: flex; 
+            flex-direction: column; 
+        }
+
         .sidebar-header { padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; flex-shrink: 0; }
         .sidebar-content { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; }
 
-        /* 统计卡片：修复截图错位 */
+        /* 统计卡片：对称美化 */
         .stat-container { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
         .stat-box { display: flex; gap: 10px; justify-content: space-between; }
         .stat-card { flex: 1; text-align: center; background: #f8fafc; padding: 12px 5px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -30,15 +40,12 @@
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
         /* 上传区 */
-        .upload-zone { border: 2.5px dashed #cbd5e1; border-radius: 12px; padding: 30px 15px; text-align: center; cursor: pointer; margin-bottom: 12px; background: #fff; }
+        .upload-zone { border: 2.5px dashed #cbd5e1; border-radius: 12px; padding: 25px 15px; text-align: center; cursor: pointer; margin-bottom: 12px; background: #fff; }
         .upload-pulse { animation: pulse-indigo-glow 2.5s infinite; border-color: var(--primary); }
-        @keyframes pulse-indigo-glow { 0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.1); } 50% { box-shadow: 0 0 20px rgba(79, 70, 229, 0.2); background-color: rgba(79, 70, 229, 0.05); } 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.1); } }
-        #fileName { font-size: 17px; font-weight: 800; color: var(--primary); display: inline-block; margin: 0 8px; }
-        .sparkle { display: inline-block; font-size: 18px; animation: sparkle-blink 1.2s infinite ease-in-out; }
-        @keyframes sparkle-blink { 0%, 100% { opacity: 0.3; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.1); } }
+        @keyframes pulse-indigo-glow { 0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.1); } 50% { box-shadow: 0 0 15px rgba(79, 70, 229, 0.2); } 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.1); } }
+        #fileName { font-size: 16px; font-weight: 800; color: var(--primary); display: inline-block; margin: 0 5px; }
 
         #startBtn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; }
-        #startBtn:disabled { opacity: 0.6; cursor: not-allowed; }
         #downloadBtn { width: 100%; display: none; background: #10b981; color: white; margin-top: 10px; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
         .list-container { flex-grow: 1; overflow-y: auto; margin-top: 15px; border-top: 1px solid #f1f5f9; }
@@ -47,74 +54,76 @@
         tr.active { background: #eff6ff; font-weight: bold; color: var(--primary); }
         tr.marked td { color: var(--danger); font-weight: bold; }
 
-        /* --- 核心修复：遮罩层改为 fixed 并避开侧边栏 --- */
+        /* --- 核心修复：遮罩层仅覆盖右侧操作区 --- */
         #reviewOverlay { 
             display: none; 
-            position: fixed; 
+            position: absolute; 
             left: 0; 
-            top: 0; 
-            right: var(--sidebar-width); /* 关键：留出右侧侧边栏宽度 */
+            top: 155px; /* 从统计卡片下方开始，或者你可以设为0覆盖整个右侧 */
+            right: 0;
             bottom: 0; 
             background: rgba(15, 23, 42, 0.96); 
-            z-index: 2000; /* 高于主视图 */
+            z-index: 2000; 
             flex-direction: column; 
             align-items: center; 
             justify-content: center; 
+            border-radius: 0 0 0 0;
         }
-        .btn-group { display: flex; flex-direction: column; gap: 15px; width: 60%; max-width: 500px; }
-        .action-btn { padding: 22px; border-radius: 12px; border: none; cursor: pointer; font-size: 18px; font-weight: bold; transition: transform 0.1s; }
-        .action-btn:active { transform: scale(0.98); }
+        .btn-group { display: flex; flex-direction: column; gap: 12px; width: 85%; }
+        .action-btn { padding: 20px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
         .btn-mark { background: var(--danger); color: white; }
         .btn-next { background: white; color: #1e293b; }
-        .btn-stop { background: transparent; color: #94a3b8; border: 1px solid #475569; margin-top: 15px; font-size: 15px; }
+        .btn-stop { background: transparent; color: #94a3b8; border: 1px solid #475569; margin-top: 10px; font-size: 14px; }
     </style>
 </head>
 <body>
 
 <div class="main-view">
     <div style="text-align: center;">
-        <div style="font-size: 50px; margin-bottom: 20px; opacity: 0.5;">🖥️</div>
-        <div style="font-weight: 500;">审阅窗口在此弹出</div>
+        <div style="font-size: 50px; margin-bottom: 20px; opacity: 0.3;">🖥️</div>
+        <div style="font-weight: 500;">审阅窗口已在弹窗中打开</div>
     </div>
 </div>
 
-<div id="reviewOverlay">
-    <div style="color: #818cf8; font-size: 12px; margin-bottom: 25px; letter-spacing: 1px;">全屏点击/按键均可翻页</div>
-    <div class="btn-group">
-        <button class="action-btn btn-mark" id="markBtn">🚩 标记该记录并下一条</button>
-        <button class="action-btn btn-next" id="nextBtn">直接切换下一条</button>
-        <button class="action-btn btn-stop" id="stopBtn">中止审阅并保存结果</button>
-    </div>
-</div>
-
-<div class="sidebar">
-    <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v4.9.5</h3></div>
-    <div class="sidebar-content">
-        <div class="stat-container">
-            <div class="stat-box">
-                <div class="stat-card">
-                    <span class="stat-label">进度</span>
-                    <div class="stat-num num-blue"><span id="currentProgNum">0</span>/<span id="totalNum">0</span></div>
+<div class="sidebar-wrapper">
+    <div class="sidebar">
+        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v4.9.6</h3></div>
+        <div class="sidebar-content">
+            <div class="stat-container">
+                <div class="stat-box">
+                    <div class="stat-card">
+                        <span class="stat-label">进度</span>
+                        <div class="stat-num num-blue"><span id="currentProgNum">0</span>/<span id="totalNum">0</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">已标记</span>
+                        <span id="markedNum" class="stat-num num-red">0</span>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <span class="stat-label">已标记</span>
-                    <span id="markedNum" class="stat-num num-red">0</span>
+                <div class="progress-wrapper"><div id="progressBar"></div></div>
+            </div>
+
+            <div id="reviewOverlay">
+                <div style="color: #818cf8; font-size: 11px; margin-bottom: 20px;">点击/按键均可翻页</div>
+                <div class="btn-group">
+                    <button class="action-btn btn-mark" id="markBtn">🚩 标记并下一条</button>
+                    <button class="action-btn btn-next" id="nextBtn">直接下一条</button>
+                    <button class="action-btn btn-stop" id="stopBtn">中止并保存</button>
                 </div>
             </div>
-            <div class="progress-wrapper"><div id="progressBar"></div></div>
-        </div>
 
-        <div id="setupArea">
-            <div id="uploadZone" class="upload-zone upload-pulse" onclick="document.getElementById('fileInput').click()">
-                <div style="margin-bottom: 6px;"><span class="sparkle">✨</span><span id="fileName">上传 Excel 自动重排</span><span class="sparkle" style="animation-delay: 0.6s;">✨</span></div>
-                <div style="font-size: 11px; color: #94a3b8;">支持断点续传 & 计时统计</div>
-                <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
+            <div id="setupArea">
+                <div id="uploadZone" class="upload-zone upload-pulse" onclick="document.getElementById('fileInput').click()">
+                    <div style="margin-bottom: 6px;"><span id="fileName">上传 Excel 自动重排</span></div>
+                    <div style="font-size: 10px; color: #94a3b8;">支持断点续传 & 计时</div>
+                    <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
+                </div>
+                <button id="startBtn" disabled>请上传文件</button>
+                <button id="downloadBtn">📥 下载标记结果</button>
             </div>
-            <button id="startBtn" disabled>开始审阅前请先上传文件</button>
-            <button id="downloadBtn">📥 下载标记结果</button>
-        </div>
 
-        <div class="list-container"><table id="urlTable"></table></div>
+            <div class="list-container"><table id="urlTable"></table></div>
+        </div>
     </div>
 </div>
 
@@ -129,7 +138,6 @@
         originalSourceFileName = file.name;
         document.getElementById('fileName').innerText = file.name;
         document.getElementById('uploadZone').classList.remove('upload-pulse');
-        document.querySelectorAll('.sparkle').forEach(el => el.style.display = 'none');
         
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
@@ -143,7 +151,7 @@
             const cacheKey = 'progress_' + originalSourceFileName;
             const savedIdx = localStorage.getItem(cacheKey);
             if (savedIdx && savedIdx < links.length) {
-                if (confirm(`检测到 "${file.name}" 上次审阅到第 ${parseInt(savedIdx) + 1} 条，是否恢复进度？`)) {
+                if (confirm(`恢复上次进度到第 ${parseInt(savedIdx) + 1} 条？`)) {
                     currentIndex = parseInt(savedIdx);
                 }
             }
@@ -231,7 +239,7 @@
         if (!isRunning) return;
         if (e.target.closest('#markBtn')) { markAndNext(); return; }
         if (e.target.closest('#stopBtn')) { stopReview(); return; }
-        if (e.target.closest('.sidebar')) return; // 点击侧边栏不翻页
+        // 修改：点击左侧区域依然可以切换下一条，但遮罩只显示在右边
         openNext();
     }, true);
 
