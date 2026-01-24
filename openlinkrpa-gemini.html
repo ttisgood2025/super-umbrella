@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v3.9</title>
+    <title>网页审阅工具 v4.0</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -72,7 +72,7 @@
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <h3 style="margin: 0;">网页审阅 v3.9</h3>
+        <h3 style="margin: 0;">网页审阅 v4.0</h3>
     </div>
 
     <div class="sidebar-content">
@@ -113,7 +113,6 @@
     let isRunning = false, currentPopup = null;
     let originalSourceFileName = "result.xlsx";
 
-    // 基础逻辑保持稳定
     document.getElementById('fileInput').onchange = function(e) {
         const file = e.target.files[0]; if(!file) return;
         originalSourceFileName = file.name;
@@ -123,9 +122,19 @@
         reader.onload = function(evt) {
             const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            rawData = XLSX.utils.sheet_to_json(sheet);
+            // 读取原始数据
+            const json = XLSX.utils.sheet_to_json(sheet);
+            
+            // 预处理：为每一行初始化“审阅结果”列，确保导出时它存在
+            rawData = json.map(row => {
+                const newRow = { "序号": "" }; // 占位
+                newRow["审阅结果"] = ""; // 预设在第二列
+                return Object.assign(newRow, row);
+            });
+
             let urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
             links = shuffleByPlatform(rawData.map((row, idx) => ({ url: row[urlKey], marked: false, originalIdx: idx })));
+            
             document.getElementById('totalNum').innerText = links.length;
             document.getElementById('startBtn').innerText = "🚀 开始顺序审阅";
             document.getElementById('startBtn').disabled = false;
@@ -198,8 +207,8 @@
         const idx = currentIndex - 1;
         if(idx >= 0) {
             links[idx].marked = true;
-            // 通过特殊的文案让它在 Excel 中极其醒目
-            rawData[links[idx].originalIdx]["审阅结果"] = "🚩🚩🚩需关注🚩🚩🚩";
+            // 采用最显眼的文案高亮建议
+            rawData[links[idx].originalIdx]["审阅结果"] = "🚩🚩🚩【重点关注】🚩🚩🚩";
             openNext();
         }
     }
@@ -215,21 +224,29 @@
     document.getElementById('startBtn').onclick = (e) => { e.stopPropagation(); startReview(); };
     window.onkeydown = (e) => { if (isRunning) openNext(); };
 
-    // --- 稳健导出逻辑：确保下载按钮 100% 可用 ---
+    // --- 导出逻辑：保持文件名规则 + 重排序列 ---
     document.getElementById('downloadBtn').onclick = () => {
-        try {
-            const ws = XLSX.utils.json_to_sheet(rawData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Result");
-            
-            // 严守规则：标记结果-源文件名
-            const finalFileName = "标记结果-" + originalSourceFileName;
-            
-            // 使用官方最兼容的写入方法
-            XLSX.writeFile(wb, finalFileName);
-        } catch (error) {
-            alert("下载失败，请尝试刷新页面重试。错误原因：" + error.message);
-        }
+        // 最终修正：确保序号和审阅结果在最前
+        const finalData = rawData.map((row, index) => {
+            const formattedRow = {};
+            formattedRow["序号"] = index + 1;
+            formattedRow["审阅结果"] = row["审阅结果"] || "";
+            // 合并剩余原有字段（过滤掉已经手动添加的）
+            Object.keys(row).forEach(key => {
+                if (key !== "序号" && key !== "审阅结果") {
+                    formattedRow[key] = row[key];
+                }
+            });
+            return formattedRow;
+        });
+
+        const ws = XLSX.utils.json_to_sheet(finalData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "审阅结果");
+        
+        // 规则：标记结果-源文件名
+        const finalFileName = "标记结果-" + originalSourceFileName;
+        XLSX.writeFile(wb, finalFileName);
     };
 </script>
 
