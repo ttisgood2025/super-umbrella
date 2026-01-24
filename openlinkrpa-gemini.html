@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v5.0.0</title>
+    <title>网页审阅工具 v5.0.1</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #4f46e5; --danger: #ef4444; --sidebar-width: 400px; }
@@ -41,7 +41,7 @@
         }
 
         .btn-group { display: flex; flex-direction: column; gap: 12px; width: 85%; }
-        .action-btn { padding: 20px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; transition: all 0.2s; }
+        .action-btn { padding: 20px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
         .btn-mark { background: var(--danger); color: white; }
         .btn-next { background: white; color: #1e293b; }
         .btn-stop { background: transparent; color: #94a3b8; border: 1px solid #475569; margin-top: 10px; font-size: 14px; }
@@ -62,13 +62,13 @@
 <div class="main-view">
     <div style="text-align: center;">
         <div style="font-size: 50px; margin-bottom: 20px; opacity: 0.3;">🖥️</div>
-        <div style="font-weight: 500;">审阅窗口焦点锁定中...</div>
+        <div style="font-weight: 500;">强力置顶驱动已加载</div>
     </div>
 </div>
 
 <div class="sidebar-wrapper">
     <div class="sidebar">
-        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v5.0.0</h3></div>
+        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v5.0.1</h3></div>
         <div class="sidebar-content">
             <div class="stat-container">
                 <div class="stat-box">
@@ -85,7 +85,7 @@
             </div>
 
             <div id="reviewOverlay">
-                <div style="color: #818cf8; font-size: 11px; margin-bottom: 20px;">点击下方按钮，窗口将自动跳至最前</div>
+                <div style="color: #818cf8; font-size: 11px; margin-bottom: 20px;">点击按钮窗口必置顶</div>
                 <div class="btn-group">
                     <button class="action-btn btn-mark" id="markBtn">🚩 标记并下一条</button>
                     <button class="action-btn btn-next" id="nextBtn">直接下一条</button>
@@ -124,13 +124,9 @@
             rawData = XLSX.utils.sheet_to_json(sheet).map(row => ({ "序号": "", "审阅结果": "", "审阅时长": "", ...row }));
             let urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
             links = shuffleByPlatform(rawData.map((row, idx) => ({ url: row[urlKey], marked: false, originalIdx: idx, duration: 0 })));
-            
-            const cacheKey = 'progress_' + originalSourceFileName;
-            const savedIdx = localStorage.getItem(cacheKey);
+            const savedIdx = localStorage.getItem('progress_' + originalSourceFileName);
             if (savedIdx && savedIdx < links.length) {
-                if (confirm(`恢复上次进度到第 ${parseInt(savedIdx) + 1} 条？`)) {
-                    currentIndex = parseInt(savedIdx);
-                }
+                if (confirm(`恢复进度到第 ${parseInt(savedIdx) + 1} 条？`)) currentIndex = parseInt(savedIdx);
             }
             document.getElementById('totalNum').innerText = links.length;
             document.getElementById('startBtn').innerText = "🚀 开始顺序审阅";
@@ -160,42 +156,39 @@
         document.getElementById('progressBar').style.width = (links.length > 0 ? (currentIndex / links.length) * 100 : 0) + "%";
     }
 
-    // --- 核心修复函数：参照 v4.9.2 经典补丁 ---
-    function openNext() {
-        if (!isRunning) return;
-        
-        // 1. 计时逻辑后置处理，优先处理窗口打开
-        const durationIdx = currentIndex - 1;
-        
-        if (currentIndex >= links.length) { stopReview(); return; }
+    // --- 终极修复：交互直连函数 ---
+    function masterTrigger(markCurrent) {
+        if (!isRunning || currentIndex >= links.length) { if(isRunning) stopReview(); return; }
+
+        // 1. 物理层第一行：立即获取窗口控制权 (不可被任何逻辑阻塞)
         const url = links[currentIndex].url;
         const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0`;
         
-        // 2. 关键：先尝试聚焦，再执行 URL 切换
         if (currentPopup && !currentPopup.closed) {
-            currentPopup.focus(); // 第一次尝试唤醒
-            currentPopup.location.replace(url);
+            currentPopup.focus(); 
+            currentPopup.location.href = url; // 使用 href 替换 replace，有时对焦点更友好
         } else {
             currentPopup = window.open(url, "ReviewWindow", features);
         }
 
-        // 3. 仿照 v4.9.2 的黄金延迟补丁：第二次和第三次强行聚焦
-        setTimeout(() => {
-            if (currentPopup && !currentPopup.closed) {
-                currentPopup.focus();
-            }
-        }, 150);
-        
-        setTimeout(() => {
-            if (currentPopup && !currentPopup.closed) {
-                currentPopup.focus();
-            }
-        }, 450);
+        // 2. 物理层第二行：强力焦点补丁 (经典 v4.9.2 方案升级)
+        if(currentPopup) {
+            currentPopup.focus();
+            setTimeout(() => { currentPopup.focus(); }, 50);
+            setTimeout(() => { currentPopup.focus(); }, 250);
+        }
 
-        // 4. 后置处理数据记录
-        if (entryTime && durationIdx >= 0) {
-            links[durationIdx].duration += Math.round((Date.now() - entryTime) / 1000);
-            rawData[links[durationIdx].originalIdx]["审阅时长"] = links[durationIdx].duration + "秒";
+        // 3. 逻辑层：处理数据（在窗口已经飞出去之后再处理）
+        if (markCurrent && currentIndex > 0) {
+            const prevIdx = currentIndex - 1;
+            links[prevIdx].marked = true;
+            rawData[links[prevIdx].originalIdx]["审阅结果"] = "🚩🚩🚩【重点关注】🚩🚩🚩";
+        }
+        
+        if (entryTime && currentIndex > 0) {
+            const lastIdx = currentIndex - 1;
+            links[lastIdx].duration += Math.round((Date.now() - entryTime) / 1000);
+            rawData[links[lastIdx].originalIdx]["审阅时长"] = links[lastIdx].duration + "秒";
         }
 
         localStorage.setItem('progress_' + originalSourceFileName, currentIndex);
@@ -206,46 +199,32 @@
         if(row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    function startReview() {
-        isRunning = true;
-        document.getElementById('reviewOverlay').style.display = 'flex';
-        document.getElementById('startBtn').disabled = true;
-        openNext();
-    }
-
     function stopReview() {
-        if (entryTime && currentIndex > 0) {
-            links[currentIndex - 1].duration += Math.round((Date.now() - entryTime) / 1000);
-            rawData[links[currentIndex - 1].originalIdx]["审阅时长"] = links[currentIndex - 1].duration + "秒";
-        }
         isRunning = false;
-        if (currentPopup && !currentPopup.closed) { currentPopup.close(); currentPopup = null; }
+        if (currentPopup && !currentPopup.closed) currentPopup.close();
         document.getElementById('reviewOverlay').style.display = 'none';
         document.getElementById('startBtn').disabled = false;
-        document.getElementById('startBtn').innerText = currentIndex >= links.length ? "重新审阅" : "继续审阅";
         document.getElementById('downloadBtn').style.display = 'block';
     }
 
-    function markAndNext() {
-        const idx = currentIndex - 1;
-        if(idx >= 0) {
-            links[idx].marked = true;
-            rawData[links[idx].originalIdx]["审阅结果"] = "🚩🚩🚩【重点关注】🚩🚩🚩";
-            openNext();
-        }
-    }
-
+    // 全局劫持，确保交互优先级最高
     document.addEventListener('click', (e) => {
         if (!isRunning) return;
-        // 关键：确保点击动作直接触发 openNext，不经过中间函数转发
-        if (e.target.closest('#markBtn')) { markAndNext(); return; }
-        if (e.target.closest('#stopBtn')) { stopReview(); return; }
-        if (e.target.closest('.sidebar')) return; 
-        openNext();
+        const btnMark = e.target.closest('#markBtn');
+        const btnNext = e.target.closest('#nextBtn');
+        const btnStop = e.target.closest('#stopBtn');
+        const isSidebar = e.target.closest('.sidebar');
+
+        if (btnStop) { stopReview(); return; }
+        if (btnMark) { masterTrigger(true); return; }
+        if (btnNext) { masterTrigger(false); return; }
+        if (isSidebar) return;
+
+        masterTrigger(false); // 点击非操作区也下一条
     }, true);
 
-    document.getElementById('startBtn').onclick = (e) => { e.stopPropagation(); startReview(); };
-    window.onkeydown = (e) => { if (isRunning) openNext(); };
+    document.getElementById('startBtn').onclick = () => { isRunning = true; document.getElementById('reviewOverlay').style.display = 'flex'; masterTrigger(false); };
+    window.onkeydown = () => { if (isRunning) masterTrigger(false); };
 
     document.getElementById('downloadBtn').onclick = () => {
         const finalData = rawData.map((row, index) => {
