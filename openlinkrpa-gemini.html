@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v4.2</title>
+    <title>网页审阅工具 v4.3</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -36,7 +36,27 @@
         .progress-wrapper { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 10px; overflow: hidden; }
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
-        .upload-zone { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 15px; text-align: center; cursor: pointer; margin-bottom: 10px; }
+        /* --- 新增：上传区呼吸效果 --- */
+        .upload-zone { 
+            border: 2px dashed #cbd5e1; 
+            border-radius: 10px; 
+            padding: 15px; 
+            text-align: center; 
+            cursor: pointer; 
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+
+        .upload-pulse {
+            animation: pulse-indigo 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-indigo {
+            0% { border-color: #cbd5e1; box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+            50% { border-color: var(--primary); box-shadow: 0 0 15px rgba(79, 70, 229, 0.2); background-color: rgba(79, 70, 229, 0.02); }
+            100% { border-color: #cbd5e1; box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+        }
+
         #startBtn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
         .list-container { flex-grow: 1; overflow-y: auto; margin-top: 10px; }
@@ -45,17 +65,11 @@
         tr.active { background: #eff6ff; font-weight: bold; }
         tr.marked td { color: var(--danger); font-weight: bold; }
 
-        /* --- 修正目标：刚好遮盖住文件上传及下方区域，避开上方统计卡片 --- */
         #reviewOverlay {
-            display: none; 
-            position: absolute; 
-            left: 0; right: 0; bottom: 0; 
-            top: 155px; /* 精准定位：起始于统计卡片下方，完全遮盖上传区边缘 */
-            background: rgba(15, 23, 42, 0.95); 
-            z-index: 600;
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center;
+            display: none; position: absolute; left: 0; right: 0; bottom: 0; 
+            top: 155px; /* 精准遮盖上传区及其边缘 */
+            background: rgba(15, 23, 42, 0.95); z-index: 600;
+            flex-direction: column; align-items: center; justify-content: center;
         }
 
         .btn-group { display: flex; flex-direction: column; gap: 15px; width: 80%; }
@@ -79,7 +93,7 @@
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <h3 style="margin: 0;">网页审阅 v4.2</h3>
+        <h3 style="margin: 0;">网页审阅 v4.3</h3>
     </div>
 
     <div class="sidebar-content">
@@ -92,11 +106,11 @@
         </div>
 
         <div id="setupArea">
-            <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+            <div id="uploadZone" class="upload-zone upload-pulse" onclick="document.getElementById('fileInput').click()">
                 <div id="fileName" style="font-size: 12px; color: #64748b;">上传 Excel 自动重排</div>
                 <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
             </div>
-            <button id="startBtn" style="width:100%" disabled>请上传excel文件</button>
+            <button id="startBtn" style="width:100%" disabled>请上传excel文件 ↑</button>
             <button id="downloadBtn" style="width:100%; display:none; background:#10b981; color:white; margin-top:10px; border:none; padding:15px; border-radius:8px; font-weight:bold; cursor:pointer;">📥 下载标记结果</button>
         </div>
 
@@ -124,6 +138,10 @@
         const file = e.target.files[0]; if(!file) return;
         originalSourceFileName = file.name;
         document.getElementById('fileName').innerText = file.name;
+        
+        // 文件上传后，移除呼吸效果
+        document.getElementById('uploadZone').classList.remove('upload-pulse');
+        
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
@@ -241,7 +259,7 @@
         const ws = XLSX.utils.json_to_sheet(finalData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "审阅结果");
-        // 守则：标记结果-源文件名
+        // 核心规则：标记结果-源文件名
         const finalFileName = "标记结果-" + originalSourceFileName;
         XLSX.writeFile(wb, finalFileName);
     };
