@@ -10,12 +10,25 @@
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }
         body { font-family: 'PingFang SC', system-ui, sans-serif; background-color: #f8fafc; display: flex; }
 
-        .main-view { flex: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1; background: #f1f5f9; }
+        /* 左侧：主视图 */
+        .main-view { flex: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1; background: #f1f5f9; position: relative; }
+        
+        /* 右侧：侧边栏容器 */
         .sidebar-wrapper { width: var(--sidebar-width); height: 100vh; position: relative; flex-shrink: 0; }
-        .sidebar { width: 100%; height: 100%; background: white; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; }
-        .sidebar-header { padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; flex-shrink: 0; }
-        .sidebar-content { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
+        
+        .sidebar { 
+            width: 100%; 
+            height: 100%; 
+            background: white; 
+            border-left: 1px solid #e2e8f0; 
+            display: flex; 
+            flex-direction: column; 
+        }
 
+        .sidebar-header { padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; flex-shrink: 0; }
+        .sidebar-content { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+        /* 统计卡片：对称美化 */
         .stat-container { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
         .stat-box { display: flex; gap: 10px; justify-content: space-between; }
         .stat-card { flex: 1; text-align: center; background: #f8fafc; padding: 12px 5px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -26,24 +39,12 @@
         .progress-wrapper { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 12px; overflow: hidden; }
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
-        #reviewOverlay { 
-            display: none; 
-            position: absolute; 
-            left: 0; top: 0; right: 0; bottom: 0; 
-            background: rgba(15, 23, 42, 0.96); 
-            z-index: 2000; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-        }
+        /* 上传区 */
+        .upload-zone { border: 2.5px dashed #cbd5e1; border-radius: 12px; padding: 25px 15px; text-align: center; cursor: pointer; margin-bottom: 12px; background: #fff; }
+        .upload-pulse { animation: pulse-indigo-glow 2.5s infinite; border-color: var(--primary); }
+        @keyframes pulse-indigo-glow { 0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.1); } 50% { box-shadow: 0 0 15px rgba(79, 70, 229, 0.2); } 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.1); } }
+        #fileName { font-size: 16px; font-weight: 800; color: var(--primary); display: inline-block; margin: 0 5px; }
 
-        .btn-group { display: flex; flex-direction: column; gap: 12px; width: 85%; }
-        .action-btn { padding: 20px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; transition: all 0.2s; }
-        .btn-mark { background: var(--danger); color: white; }
-        .btn-next { background: white; color: #1e293b; }
-        .btn-stop { background: transparent; color: #94a3b8; border: 1px solid #475569; margin-top: 10px; font-size: 14px; }
-
-        .upload-zone { border: 2.5px dashed #cbd5e1; border-radius: 12px; padding: 25px 15px; text-align: center; cursor: pointer; margin-bottom: 12px; }
         #startBtn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; }
         #downloadBtn { width: 100%; display: none; background: #10b981; color: white; margin-top: 10px; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
@@ -52,25 +53,46 @@
         td { padding: 10px; border-bottom: 1px solid #f8fafc; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         tr.active { background: #eff6ff; font-weight: bold; color: var(--primary); }
         tr.marked td { color: var(--danger); font-weight: bold; }
+
+        /* --- 核心修复：遮罩层仅覆盖右侧操作区 --- */
+        #reviewOverlay { 
+            display: none; 
+            position: absolute; 
+            left: 0; 
+            top: 155px; /* 从统计卡片下方开始，或者你可以设为0覆盖整个右侧 */
+            right: 0;
+            bottom: 0; 
+            background: rgba(15, 23, 42, 0.96); 
+            z-index: 2000; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            border-radius: 0 0 0 0;
+        }
+        .btn-group { display: flex; flex-direction: column; gap: 12px; width: 85%; }
+        .action-btn { padding: 20px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn-mark { background: var(--danger); color: white; }
+        .btn-next { background: white; color: #1e293b; }
+        .btn-stop { background: transparent; color: #94a3b8; border: 1px solid #475569; margin-top: 10px; font-size: 14px; }
     </style>
 </head>
 <body>
 
 <div class="main-view">
     <div style="text-align: center;">
-        <div style="font-size: 50px; margin-bottom: 20px; opacity: 0.3;">📋</div>
-        <div style="font-weight: 500;">正在加载审阅环境...</div>
+        <div style="font-size: 50px; margin-bottom: 20px; opacity: 0.3;">🖥️</div>
+        <div style="font-weight: 500;">审阅窗口已在弹窗中打开</div>
     </div>
 </div>
 
 <div class="sidebar-wrapper">
     <div class="sidebar">
-        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅工具 v4.9.6</h3></div>
+        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v4.9.6</h3></div>
         <div class="sidebar-content">
             <div class="stat-container">
                 <div class="stat-box">
                     <div class="stat-card">
-                        <span class="stat-label">当前进度</span>
+                        <span class="stat-label">进度</span>
                         <div class="stat-num num-blue"><span id="currentProgNum">0</span>/<span id="totalNum">0</span></div>
                     </div>
                     <div class="stat-card">
@@ -82,21 +104,24 @@
             </div>
 
             <div id="reviewOverlay">
+                <div style="color: #818cf8; font-size: 11px; margin-bottom: 20px;">点击/按键均可翻页</div>
                 <div class="btn-group">
-                    <button class="action-btn btn-mark" id="markBtn">🚩 标记此记录</button>
+                    <button class="action-btn btn-mark" id="markBtn">🚩 标记并下一条</button>
                     <button class="action-btn btn-next" id="nextBtn">直接下一条</button>
                     <button class="action-btn btn-stop" id="stopBtn">中止并保存</button>
                 </div>
             </div>
 
             <div id="setupArea">
-                <div id="uploadZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
-                    <div style="margin-bottom: 6px;"><span id="fileName">点击上传原始 Excel 文件</span></div>
+                <div id="uploadZone" class="upload-zone upload-pulse" onclick="document.getElementById('fileInput').click()">
+                    <div style="margin-bottom: 6px;"><span id="fileName">上传 Excel 自动重排</span></div>
+                    <div style="font-size: 10px; color: #94a3b8;">支持断点续传 & 计时</div>
                     <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
                 </div>
-                <button id="startBtn" disabled>请先上传文件</button>
-                <button id="downloadBtn">📥 下载审阅结果</button>
+                <button id="startBtn" disabled>请上传文件</button>
+                <button id="downloadBtn">📥 下载标记结果</button>
             </div>
+
             <div class="list-container"><table id="urlTable"></table></div>
         </div>
     </div>
@@ -106,25 +131,49 @@
     let rawData = [], links = [], currentIndex = 0;
     let isRunning = false, currentPopup = null;
     let originalSourceFileName = "";
+    let entryTime = null;
 
     document.getElementById('fileInput').onchange = function(e) {
         const file = e.target.files[0]; if(!file) return;
         originalSourceFileName = file.name;
         document.getElementById('fileName').innerText = file.name;
+        document.getElementById('uploadZone').classList.remove('upload-pulse');
+        
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
             const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            rawData = XLSX.utils.sheet_to_json(sheet).map(row => ({ "审阅结果": "", ...row }));
-            let urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).startsWith('http'));
-            links = rawData.map((row, idx) => ({ url: row[urlKey], marked: false, originalIdx: idx }));
+            rawData = XLSX.utils.sheet_to_json(sheet).map(row => ({ "序号": "", "审阅结果": "", "审阅时长": "", ...row }));
+            let urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
+            links = shuffleByPlatform(rawData.map((row, idx) => ({ url: row[urlKey], marked: false, originalIdx: idx, duration: 0 })));
+            
+            const cacheKey = 'progress_' + originalSourceFileName;
+            const savedIdx = localStorage.getItem(cacheKey);
+            if (savedIdx && savedIdx < links.length) {
+                if (confirm(`恢复上次进度到第 ${parseInt(savedIdx) + 1} 条？`)) {
+                    currentIndex = parseInt(savedIdx);
+                }
+            }
             document.getElementById('totalNum').innerText = links.length;
             document.getElementById('startBtn').innerText = "🚀 开始顺序审阅";
             document.getElementById('startBtn').disabled = false;
             renderTable();
         };
     };
+
+    function shuffleByPlatform(items) {
+        const groups = {};
+        items.forEach(item => {
+            try { const d = new URL(item.url).hostname; if (!groups[d]) groups[d] = []; groups[d].push(item); }
+            catch(e) { if (!groups['others']) groups['others'] = []; groups['others'].push(item); }
+        });
+        const sorted = []; const domains = Object.keys(groups); let hasData = true;
+        while(hasData) {
+            hasData = false; domains.forEach(d => { if(groups[d].length > 0) { sorted.push(groups[d].shift()); hasData = true; } });
+        }
+        return sorted;
+    }
 
     function renderTable() {
         const html = links.map((item, i) => `<tr id="row-${i}" class="${item.marked ? 'marked' : ''} ${currentIndex-1 === i ? 'active' : ''}"><td>${i+1}. ${item.url}</td></tr>`).join('');
@@ -135,19 +184,22 @@
     }
 
     function openNext() {
-        if (!isRunning || currentIndex >= links.length) { if(isRunning) stopReview(); return; }
+        if (!isRunning) return;
+        if (entryTime && currentIndex > 0) {
+            const lastIdx = currentIndex - 1;
+            links[lastIdx].duration += Math.round((Date.now() - entryTime) / 1000);
+            rawData[links[lastIdx].originalIdx]["审阅时长"] = links[lastIdx].duration + "秒";
+        }
+        if (currentIndex >= links.length) { stopReview(); return; }
+        
         const url = links[currentIndex].url;
         const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0`;
-        
-        if (currentPopup && !currentPopup.closed) {
-            currentPopup.location.replace(url);
-            currentPopup.focus();
-        } else {
-            currentPopup = window.open(url, "ReviewWindow", features);
-        }
+        if (currentPopup && !currentPopup.closed) { currentPopup.location.replace(url); } 
+        else { currentPopup = window.open(url, "ReviewWindow", features); }
 
-        setTimeout(() => { if (currentPopup) currentPopup.focus(); }, 100);
-
+        localStorage.setItem('progress_' + originalSourceFileName, currentIndex);
+        setTimeout(() => { if(currentPopup) currentPopup.focus(); }, 180);
+        entryTime = Date.now();
         currentIndex++;
         renderTable();
         const row = document.getElementById(`row-${currentIndex-1}`);
@@ -162,34 +214,48 @@
     }
 
     function stopReview() {
+        if (entryTime && currentIndex > 0) {
+            links[currentIndex - 1].duration += Math.round((Date.now() - entryTime) / 1000);
+            rawData[links[currentIndex - 1].originalIdx]["审阅时长"] = links[currentIndex - 1].duration + "秒";
+        }
         isRunning = false;
-        if (currentPopup && !currentPopup.closed) currentPopup.close();
+        if (currentPopup && !currentPopup.closed) { currentPopup.close(); currentPopup = null; }
         document.getElementById('reviewOverlay').style.display = 'none';
         document.getElementById('startBtn').disabled = false;
+        document.getElementById('startBtn').innerText = currentIndex >= links.length ? "重新审阅" : "继续审阅";
         document.getElementById('downloadBtn').style.display = 'block';
     }
 
-    function markRecord() {
+    function markAndNext() {
         const idx = currentIndex - 1;
         if(idx >= 0) {
             links[idx].marked = true;
-            rawData[links[idx].originalIdx]["审阅结果"] = "🚩标记记录";
-            renderTable();
+            rawData[links[idx].originalIdx]["审阅结果"] = "🚩🚩🚩【重点关注】🚩🚩🚩";
+            openNext();
         }
     }
 
-    document.getElementById('markBtn').onclick = markRecord;
-    document.getElementById('nextBtn').onclick = openNext;
-    document.getElementById('stopBtn').onclick = stopReview;
-    document.getElementById('startBtn').onclick = startReview;
-    
+    document.addEventListener('click', (e) => {
+        if (!isRunning) return;
+        if (e.target.closest('#markBtn')) { markAndNext(); return; }
+        if (e.target.closest('#stopBtn')) { stopReview(); return; }
+        // 修改：点击左侧区域依然可以切换下一条，但遮罩只显示在右边
+        openNext();
+    }, true);
+
+    document.getElementById('startBtn').onclick = (e) => { e.stopPropagation(); startReview(); };
     window.onkeydown = (e) => { if (isRunning) openNext(); };
 
     document.getElementById('downloadBtn').onclick = () => {
-        const ws = XLSX.utils.json_to_sheet(rawData);
+        const finalData = rawData.map((row, index) => {
+            const formattedRow = { "序号": index + 1, "审阅结果": row["审阅结果"] || "", "审阅时长": row["审阅时长"] || "0秒" };
+            Object.keys(row).forEach(key => { if (!["序号", "审阅结果", "审阅时长"].includes(key)) formattedRow[key] = row[key]; });
+            return formattedRow;
+        });
+        const ws = XLSX.utils.json_to_sheet(finalData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "结果");
-        XLSX.writeFile(wb, "审阅结果_" + originalSourceFileName);
+        XLSX.utils.book_append_sheet(wb, ws, "审阅结果");
+        XLSX.writeFile(wb, "标记结果-" + originalSourceFileName);
     };
 </script>
 </body>
