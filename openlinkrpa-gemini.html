@@ -2,10 +2,11 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v3.0 (弹窗修复版)</title>
+    <title>网页审阅工具 v3.1 (回归 v2.2 逻辑)</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
+            /* 严格还原 v2.2 配色 */
             --primary: #4f46e5;
             --danger: #ff0000;
             --sidebar-width: 400px;
@@ -26,7 +27,7 @@
         .sidebar-header { padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; }
         .sidebar-content { padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; position: relative; }
 
-        /* 统计数据常驻 */
+        /* v2.6+ 引入的统计数据常驻 (z-index 调至最高) */
         .stat-container {
             background: white; padding: 15px; border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px;
@@ -36,7 +37,6 @@
         .stat-card { background: #f1f5f9; padding: 10px; border-radius: 8px; text-align: center; }
         .stat-label { font-size: 11px; color: #64748b; display: block; margin-bottom: 4px; }
         .stat-num { font-size: 22px; font-weight: bold; color: var(--primary); }
-        
         .progress-wrapper { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 12px; overflow: hidden; }
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
@@ -54,17 +54,18 @@
         td { padding: 10px; border-bottom: 1px solid #f1f5f9; word-break: break-all; }
         tr.active { background: #eef2ff; border-right: 4px solid var(--primary); }
         .marked-red { color: var(--danger) !important; font-weight: bold; }
-        .mark-tag { font-size: 10px; background: #fee2e2; color: #ef4444; padding: 2px 4px; border-radius: 4px; margin-left: 5px; }
 
-        /* 操作遮罩 */
+        /* 关键：还原 v2.2 的 Overlay 逻辑 */
         #rightOverlay {
-            display: none; position: absolute; left: 0; right: 0; bottom: 0; top: 165px; 
-            background: rgba(15, 23, 42, 0.95); z-index: 250;
+            display: none; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.95); z-index: 250;
             flex-direction: column; align-items: center; justify-content: center; color: white;
         }
+        /* 避让顶部的统计常驻区 */
+        #rightOverlay.offset-mode { top: 165px; }
+
         .btn-group { display: flex; flex-direction: column; gap: 15px; width: 80%; }
         .action-btn { padding: 16px; border-radius: 12px; border: none; cursor: pointer; font-size: 15px; font-weight: bold; }
-        .btn-next { background: #ffffff; color: #1e293b; }
+        .btn-next { background: white; color: #1e293b; }
         .btn-mark { background: #ef4444; color: white; }
         .btn-stop { background: transparent; color: #94a3b8; border: 1px solid #475569; margin-top: 20px; }
     </style>
@@ -77,27 +78,21 @@
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <div style="font-size: 11px; opacity: 0.8;">v3.0 Final Stable</div>
+        <div style="font-size: 11px; opacity: 0.8;">v3.1 Robust Base</div>
         <h2 style="margin: 4px 0 0 0;">审阅结果工作台</h2>
     </div>
 
     <div class="sidebar-content">
         <div class="stat-container">
             <div class="stat-box">
-                <div class="stat-card">
-                    <span class="stat-label">当前进度</span>
-                    <div><span class="stat-num" id="currentProgNum">0</span><span style="color:#94a3b8; font-size: 12px;"> / <span id="totalNum">0</span></span></div>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">已标记</span>
-                    <span class="stat-num" id="markedNum">0</span>
-                </div>
+                <div class="stat-card"><span class="stat-label">进度</span><div><span class="stat-num" id="currentProgNum">0</span><span style="color:#94a3b8; font-size: 12px;"> / <span id="totalNum">0</span></span></div></div>
+                <div class="stat-card"><span class="stat-label">标记</span><span class="stat-num" id="markedNum">0</span></div>
             </div>
             <div class="progress-wrapper"><div id="progressBar"></div></div>
         </div>
 
         <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-            <div id="fileName" style="font-size: 13px; font-weight: 600; color: #64748b;">选择 Excel 自动重排</div>
+            <div id="fileName" style="font-size: 13px; font-weight: 600; color: #64748b;">选择 Excel 载入数据</div>
             <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
         </div>
 
@@ -108,11 +103,11 @@
             <table><tbody id="urlTable"></tbody></table>
         </div>
 
-        <div id="rightOverlay">
+        <div id="rightOverlay" class="offset-mode">
             <div id="urlDisplay" style="font-size: 11px; color: #818cf8; margin-bottom: 20px; padding: 0 20px; text-align: center; word-break: break-all;"></div>
             <div class="btn-group">
                 <button class="action-btn btn-mark" id="markRedBtn">🚩 标记该条记录</button>
-                <button class="action-btn btn-next" id="nextBtn">下一条 (或点遮罩层)</button>
+                <button class="action-btn btn-next" id="nextBtn">切换下一条 (任意键)</button>
                 <button class="action-btn btn-stop" id="stopBtnHand">中止并保存</button>
             </div>
         </div>
@@ -123,86 +118,74 @@
     let rawData = [], links = [], currentIndex = 0;
     let isRunning = false, currentPopup = null, currentFileName = "result.xlsx";
 
-    // 数据重排
+    // 1. 防爬离散打乱算法 (v2.4引入)
     function shuffleByPlatform(items) {
         const groups = {};
         items.forEach(item => {
-            try { const domain = new URL(item.url).hostname; if (!groups[domain]) groups[domain] = []; groups[domain].push(item); }
+            try { const d = new URL(item.url).hostname; if (!groups[d]) groups[d] = []; groups[d].push(item); }
             catch(e) { if (!groups['others']) groups['others'] = []; groups['others'].push(item); }
         });
-        Object.values(groups).forEach(g => g.sort(() => Math.random() - 0.5));
         const sorted = []; const domainList = Object.keys(groups); let hasData = true;
         while(hasData) {
             hasData = false;
-            domainList.forEach(domain => { if(groups[domain].length > 0) { sorted.push(groups[domain].shift()); hasData = true; } });
+            domainList.forEach(d => { if(groups[d].length > 0) { sorted.push(groups[d].shift()); hasData = true; } });
         }
         return sorted;
     }
 
-    // 文件读取
     document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0]; if (!file) return;
-        currentFileName = "标记结果_" + file.name;
+        currentFileName = "审阅结果_" + file.name;
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
-            try {
-                const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                rawData = XLSX.utils.sheet_to_json(sheet);
-                let urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
-                if (!urlKey) { alert("未找到网址列"); return; }
-                links = shuffleByPlatform(rawData.map((row, idx) => ({ url: row[urlKey], marked: false, originalIdx: idx })));
-                currentIndex = 0;
-                renderTable();
-                document.getElementById('fileName').innerText = file.name;
-                document.getElementById('totalNum').innerText = links.length;
-                document.getElementById('startBtn').innerText = "🚀 开始顺序审阅";
-                document.getElementById('startBtn').disabled = false;
-            } catch (err) { alert("解析失败"); }
+            const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            rawData = XLSX.utils.sheet_to_json(sheet);
+            let urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
+            links = shuffleByPlatform(rawData.map((row, idx) => ({ url: row[urlKey], marked: false, originalIdx: idx })));
+            currentIndex = 0;
+            renderTable();
+            document.getElementById('totalNum').innerText = links.length;
+            document.getElementById('startBtn').innerText = "🚀 开始顺序审阅";
+            document.getElementById('startBtn').disabled = false;
         };
     });
 
     function renderTable() {
-        const html = links.map((item, i) => `
-            <tr id="row-${i}" class="${item.marked ? 'marked-red' : ''}">
-                <td>${i+1}. ${item.url} ${item.marked ? '<span class="mark-tag">已标记</span>' : ''}</td>
-            </tr>
-        `).join('');
+        const html = links.map((item, i) => `<tr id="row-${i}" class="${item.marked ? 'marked-red' : ''}"><td>${i+1}. ${item.url}</td></tr>`).join('');
         document.getElementById('urlTable').innerHTML = html;
         document.getElementById('markedNum').innerText = links.filter(l => l.marked).length;
         document.getElementById('currentProgNum').innerText = currentIndex;
         document.getElementById('progressBar').style.width = (links.length > 0 ? (currentIndex / links.length) * 100 : 0) + "%";
     }
 
-    // --- 核心修复：彻底稳固的跳转函数 ---
-    function doActionNext() {
-        if (!isRunning) return;
+    // 2. 严格还原 v2.2 的弹窗逻辑：
+    // 每一次 open 前先执行 close，且不使用固定窗口名，改用 _blank 或动态名
+    function openNext() {
         if (currentIndex >= links.length) { finish(); return; }
+        
+        // 还原 v2.2 逻辑：彻底关闭旧句柄
+        if (currentPopup && !currentPopup.closed) {
+            currentPopup.close();
+        }
 
         const url = links[currentIndex].url;
-        const windowName = "ReviewWorker"; // 固定名称
         const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0`;
-
-        // 核心：不再 close，而是直接请求新 URL，这样浏览器认为是在更新已有窗口
-        // 如果 currentPopup 已丢失，window.open 会重新建立连接
-        currentPopup = window.open(url, windowName, features);
         
+        // 关键：使用 currentIndex 作为窗口标识，确保浏览器视为新动作
+        currentPopup = window.open(url, "win_" + currentIndex, features);
+
         if (!currentPopup) {
-            alert("弹窗被拦截！请务必检查地址栏右侧并允许弹出窗口。");
-            isRunning = false;
+            alert("弹窗被阻止！");
+            finish();
             return;
         }
 
         document.getElementById('urlDisplay').innerText = url;
-        
-        // UI 状态同步
         document.querySelectorAll('tr').forEach(r => r.classList.remove('active'));
         const row = document.getElementById(`row-${currentIndex}`);
-        if (row) {
-            row.classList.add('active');
-            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        if (row) { row.classList.add('active'); row.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
         
         currentIndex++;
         renderTable();
@@ -225,48 +208,31 @@
         document.getElementById('downloadBtn').style.display = 'block';
     }
 
-    // 事件绑定
-    document.getElementById('startBtn').addEventListener('click', (e) => {
+    // 3. 事件绑定回归最简模式
+    document.getElementById('startBtn').addEventListener('click', () => {
         isRunning = true;
-        if (currentIndex >= links.length) currentIndex = 0; 
+        if (currentIndex >= links.length) currentIndex = 0;
         document.getElementById('rightOverlay').style.display = 'flex';
         document.getElementById('startBtn').disabled = true;
-        doActionNext(); // 立即执行
+        openNext();
     });
 
-    document.getElementById('nextBtn').addEventListener('click', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        doActionNext();
+    document.getElementById('nextBtn').addEventListener('click', openNext);
+    document.getElementById('markRedBtn').addEventListener('click', markCurrent);
+    document.getElementById('stopBtnHand').addEventListener('click', finish);
+    
+    // 遮罩点击逻辑回归
+    document.getElementById('rightOverlay').addEventListener('mousedown', (e) => {
+        if (e.target.tagName !== 'BUTTON') openNext();
     });
 
-    document.getElementById('markRedBtn').addEventListener('click', (e) => {
-        e.stopPropagation(); markCurrent();
-    });
-
-    document.getElementById('stopBtnHand').addEventListener('click', (e) => {
-        e.stopPropagation(); finish();
-    });
+    window.addEventListener('keydown', (e) => { if (isRunning) openNext(); });
 
     document.getElementById('downloadBtn').addEventListener('click', function() {
         const newSheet = XLSX.utils.json_to_sheet(rawData);
-        const newWorkbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(newWorkbook, newSheet, "审阅结果");
-        XLSX.writeFile(newWorkbook, currentFileName);
-    });
-
-    // 键盘支持
-    window.addEventListener('keydown', (e) => {
-        if (isRunning && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault(); 
-            doActionNext();
-        }
-    });
-
-    // 遮罩层支持 - 使用 click 确保是标准用户意图
-    document.getElementById('rightOverlay').addEventListener('click', (e) => {
-        if (isRunning && e.target.id === 'rightOverlay') {
-            doActionNext();
-        }
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, newSheet, "Result");
+        XLSX.writeFile(wb, currentFileName);
     });
 </script>
 
