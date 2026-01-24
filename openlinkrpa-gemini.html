@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v2.4 (防屏蔽离散版)</title>
+    <title>网页审阅工具 v2.5 (交互完善版)</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -69,7 +69,7 @@
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <div style="font-size: 11px; opacity: 0.8;">v2.4 Anti-Blocking</div>
+        <div style="font-size: 11px; opacity: 0.8;">v2.5 Interaction Fix</div>
         <h2 style="margin: 4px 0 0 0;">审阅结果工作台</h2>
     </div>
 
@@ -113,7 +113,6 @@
     // 离散打乱算法：确保同平台链接间隔最远
     function shuffleByPlatform(items) {
         const groups = {};
-        // 1. 按域名分组
         items.forEach(item => {
             try {
                 const domain = new URL(item.url).hostname;
@@ -125,10 +124,8 @@
             }
         });
 
-        // 2. 将各组内部打乱
         Object.values(groups).forEach(g => g.sort(() => Math.random() - 0.5));
 
-        // 3. 交叉提取，实现最大化离散
         const sorted = [];
         const domainList = Object.keys(groups);
         let hasData = true;
@@ -147,35 +144,56 @@
     document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
+        
+        const btn = document.getElementById('startBtn');
+        const fileNameDisplay = document.getElementById('fileName');
+        
+        fileNameDisplay.innerText = "数据处理中...";
+        btn.innerText = "正在重排数据...";
+        btn.disabled = true;
+
         currentFileName = "标记结果_" + file.name;
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
-            const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            rawData = XLSX.utils.sheet_to_json(sheet);
-            
-            let urlKey = "";
-            if(rawData.length > 0) {
-                urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
+            try {
+                const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                rawData = XLSX.utils.sheet_to_json(sheet);
+                
+                let urlKey = "";
+                if(rawData.length > 0) {
+                    urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
+                }
+
+                if (!urlKey) { 
+                    alert("未找到网址列"); 
+                    btn.innerText = "等待载入数据";
+                    return; 
+                }
+
+                let tempLinks = rawData.map((row, idx) => ({
+                    url: row[urlKey],
+                    marked: false,
+                    originalIdx: idx
+                }));
+
+                links = shuffleByPlatform(tempLinks);
+
+                renderTable();
+                
+                // --- 核心修正点 ---
+                fileNameDisplay.innerText = file.name;
+                document.getElementById('totalNum').innerText = links.length;
+                
+                btn.innerText = "🚀 开始顺序审阅"; // 修正：载入后更新文字
+                btn.disabled = false;             // 修正：载入后解除禁用
+                
+                document.getElementById('downloadBtn').style.display = 'none';
+            } catch (err) {
+                alert("文件解析错误，请检查格式");
+                btn.innerText = "等待载入数据";
             }
-
-            if (!urlKey) { alert("未找到网址列"); return; }
-
-            let tempLinks = rawData.map((row, idx) => ({
-                url: row[urlKey],
-                marked: false,
-                originalIdx: idx
-            }));
-
-            // 执行离散乱序
-            links = shuffleByPlatform(tempLinks);
-
-            renderTable();
-            document.getElementById('fileName').innerText = file.name;
-            document.getElementById('totalNum').innerText = links.length;
-            document.getElementById('startBtn').disabled = false;
-            document.getElementById('downloadBtn').style.display = 'none';
         };
     });
 
@@ -231,7 +249,8 @@
     });
 
     document.getElementById('startBtn').addEventListener('click', () => {
-        isRunning = true; document.getElementById('rightOverlay').style.display = 'flex';
+        isRunning = true; 
+        document.getElementById('rightOverlay').style.display = 'flex';
         document.getElementById('startBtn').disabled = true;
         openNext();
     });
