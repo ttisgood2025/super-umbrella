@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v3.3</title>
+    <title>网页审阅工具 v3.4</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -11,7 +11,10 @@
             --sidebar-width: 400px;
         }
 
-        body { font-family: 'PingFang SC', system-ui, sans-serif; background-color: #f8fafc; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        body { font-family: 'PingFang SC', system-ui, sans-serif; background-color: #f8fafc; margin: 0; display: flex; height: 100vh; overflow: hidden; cursor: default; }
+
+        /* 左侧提示区 */
+        .main-view { flex-grow: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1; position: relative; }
 
         /* 右侧面板 */
         .sidebar {
@@ -23,7 +26,7 @@
 
         .sidebar-content { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
 
-        /* 统计区：确保 z-index 高于遮罩层，永远可点击/可见 */
+        /* 统计区 */
         .stat-container {
             background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;
@@ -36,50 +39,54 @@
         .progress-wrapper { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 10px; overflow: hidden; }
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
-        /* 文件上传区 */
+        /* 文件上传 */
         .upload-zone { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 15px; text-align: center; cursor: pointer; margin-bottom: 10px; }
-        #startBtn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #startBtn:disabled { background: #cbd5e1; }
+        #startBtn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
+        #startBtn:active { transform: scale(0.98); }
 
-        /* 审阅列表 */
+        /* 列表 */
         .list-container { flex-grow: 1; overflow-y: auto; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        td { padding: 10px; border-bottom: 1px solid #f1f5f9; word-break: break-all; color: #475569; }
-        tr.active { background: #eff6ff; border-left: 4px solid var(--primary); }
+        td { padding: 10px; border-bottom: 1px solid #f1f5f9; color: #475569; }
+        tr.active { background: #eff6ff; font-weight: bold; }
         tr.marked td { color: var(--danger); font-weight: bold; }
 
-        /* 核心：全域点击遮罩层 */
+        /* 遮罩层 */
         #reviewOverlay {
             display: none; position: absolute; left: 0; right: 0; bottom: 0; top: 165px; 
-            background: rgba(15, 23, 42, 0.92); z-index: 400;
+            background: rgba(15, 23, 42, 0.95); z-index: 400;
             flex-direction: column; align-items: center; justify-content: center;
-            cursor: pointer; /* 提示用户此处可点 */
         }
-        #reviewOverlay:active { background: rgba(15, 23, 42, 0.85); }
 
-        .overlay-tips { color: #94a3b8; font-size: 12px; margin-bottom: 20px; }
-        .btn-group { display: flex; flex-direction: column; gap: 15px; width: 80%; pointer-events: auto; }
+        .btn-group { display: flex; flex-direction: column; gap: 15px; width: 80%; }
         .action-btn { padding: 18px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
-        .btn-next { background: white; color: #1e293b; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .btn-next { background: white; color: #1e293b; border: 2px solid transparent; }
         .btn-mark { background: var(--danger); color: white; }
-        .btn-stop { background: transparent; color: #64748b; border: 1px solid #475569; margin-top: 10px; font-size: 13px; }
+        .btn-stop { background: transparent; color: #64748b; border: 1px solid #475569; margin-top: 10px; }
+
+        /* 全局状态提示：审阅中鼠标样式 */
+        body.reviewing { cursor: pointer; }
     </style>
 </head>
-<body>
+<body id="mainBody">
 
-<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1;">
-    ← 审阅窗口在此弹出
+<div class="main-view">
+    <div style="text-align: center;">
+        <div style="font-size: 48px; margin-bottom: 20px;">🖥️</div>
+        <div>审阅窗口在此弹出</div>
+        <div id="globalHint" style="margin-top: 10px; font-size: 12px; opacity: 0;">(当前模式：点击屏幕任意位置切换下一条)</div>
+    </div>
 </div>
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <h3 style="margin: 0;">网页审阅 v3.3</h3>
+        <h3 style="margin: 0;">网页审阅 v3.4</h3>
     </div>
 
     <div class="sidebar-content">
         <div class="stat-container">
             <div class="stat-box">
-                <div class="stat-card"><span class="stat-label">已看/总数</span><div><span class="stat-num" id="currentProgNum">0</span>/<span id="totalNum">0</span></div></div>
+                <div class="stat-card"><span class="stat-label">进度</span><div><span class="stat-num" id="currentProgNum">0</span>/<span id="totalNum">0</span></div></div>
                 <div class="stat-card"><span class="stat-label">已标记</span><span class="stat-num" id="markedNum" style="color:var(--danger)">0</span></div>
             </div>
             <div class="progress-wrapper"><div id="progressBar"></div></div>
@@ -99,10 +106,10 @@
         </div>
 
         <div id="reviewOverlay">
-            <div class="overlay-tips">点击下方或黑色区域切换下一条</div>
+            <div style="color: #818cf8; font-size: 11px; margin-bottom: 15px;">全屏点击/按键均可翻页</div>
             <div class="btn-group">
                 <button class="action-btn btn-mark" id="markBtn">🚩 标记该条记录</button>
-                <button class="action-btn btn-next" id="nextBtn">切换下一条 (任意键/点击)</button>
+                <button class="action-btn btn-next" id="nextBtn">切换下一条</button>
                 <button class="action-btn btn-stop" id="stopBtn">中止并保存</button>
             </div>
         </div>
@@ -113,7 +120,6 @@
     let rawData = [], links = [], currentIndex = 0;
     let isRunning = false, currentPopup = null;
 
-    // 数据处理
     function shuffleByPlatform(items) {
         const groups = {};
         items.forEach(item => {
@@ -128,7 +134,6 @@
         return sorted;
     }
 
-    // 文件读取
     document.getElementById('fileInput').onchange = function(e) {
         const file = e.target.files[0]; if(!file) return;
         const reader = new FileReader();
@@ -140,7 +145,7 @@
             let urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
             links = shuffleByPlatform(rawData.map((row, idx) => ({ url: row[urlKey], marked: false, originalIdx: idx })));
             document.getElementById('totalNum').innerText = links.length;
-            document.getElementById('startBtn').innerText = "🚀 开始顺序审阅";
+            document.getElementById('startBtn').innerText = "🚀 开始审阅";
             document.getElementById('startBtn').disabled = false;
             renderTable();
         };
@@ -154,23 +159,21 @@
         document.getElementById('progressBar').style.width = (links.length > 0 ? (currentIndex / links.length) * 100 : 0) + "%";
     }
 
-    // --- 极速触发逻辑 ---
     function openNext() {
         if (!isRunning) return;
         if (currentIndex >= links.length) { stopReview(); return; }
 
-        // 1. 【原子操作】第一时间打开/更新窗口，不等待任何逻辑
         const url = links[currentIndex].url;
         const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0`;
         
+        // 核心弹窗逻辑：
         if (currentPopup && !currentPopup.closed) {
-            currentPopup.location.replace(url); // replace 比 href 更快且不留多余历史
+            currentPopup.location.replace(url);
             try { currentPopup.focus(); } catch(e) {}
         } else {
             currentPopup = window.open(url, "ReviewWindow", features);
         }
 
-        // 2. 窗口打开后，再去处理繁重的 UI 更新
         setTimeout(() => {
             currentIndex++;
             renderTable();
@@ -182,6 +185,8 @@
     function startReview() {
         isRunning = true;
         document.getElementById('reviewOverlay').style.display = 'flex';
+        document.getElementById('mainBody').classList.add('reviewing');
+        document.getElementById('globalHint').style.opacity = '1';
         document.getElementById('startBtn').disabled = true;
         openNext();
     }
@@ -189,6 +194,8 @@
     function stopReview() {
         isRunning = false;
         document.getElementById('reviewOverlay').style.display = 'none';
+        document.getElementById('mainBody').classList.remove('reviewing');
+        document.getElementById('globalHint').style.opacity = '0';
         document.getElementById('startBtn').disabled = false;
         document.getElementById('startBtn').innerText = "继续审阅";
         document.getElementById('downloadBtn').style.display = 'block';
@@ -203,21 +210,28 @@
         }
     }
 
-    // 事件绑定：全域点击支持
-    document.getElementById('startBtn').onclick = startReview;
-    
-    // 关键：点击遮罩层整体即触发下一条
-    document.getElementById('reviewOverlay').onclick = function(e) {
-        // 如果点的不是标记按钮和中止按钮，就切换下一条
-        if (e.target.id !== 'markBtn' && e.target.id !== 'stopBtn') {
-            openNext();
-        }
-    };
+    // --- 全局点击监听 ---
+    document.addEventListener('click', function(e) {
+        if (!isRunning) return;
 
-    document.getElementById('markBtn').onclick = (e) => { e.stopPropagation(); markItem(); };
-    document.getElementById('stopBtn').onclick = (e) => { e.stopPropagation(); stopReview(); };
-    
-    // 键盘支持
+        // 1. 如果点击的是标记或中止按钮，执行对应功能逻辑
+        if (e.target.closest('#markBtn')) {
+            markItem();
+            return;
+        }
+        if (e.target.closest('#stopBtn')) {
+            stopReview();
+            return;
+        }
+
+        // 2. 如果点击的是文件上传或开始按钮区域（虽然此时它们通常被遮挡），也跳过
+        if (e.target.closest('#setupArea')) return;
+
+        // 3. 其余所有区域的点击，全部视为“切换下一条”
+        openNext();
+    }, true); // 使用捕获模式确保第一时间响应
+
+    document.getElementById('startBtn').onclick = (e) => { e.stopPropagation(); startReview(); };
     window.onkeydown = (e) => { if (isRunning) openNext(); };
 
     document.getElementById('downloadBtn').onclick = () => {
