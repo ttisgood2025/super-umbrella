@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v4.9.9</title>
+    <title>网页审阅工具 v5.0.0</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #4f46e5; --danger: #ef4444; --sidebar-width: 400px; }
@@ -41,7 +41,7 @@
         }
 
         .btn-group { display: flex; flex-direction: column; gap: 12px; width: 85%; }
-        .action-btn { padding: 20px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .action-btn { padding: 20px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; transition: all 0.2s; }
         .btn-mark { background: var(--danger); color: white; }
         .btn-next { background: white; color: #1e293b; }
         .btn-stop { background: transparent; color: #94a3b8; border: 1px solid #475569; margin-top: 10px; font-size: 14px; }
@@ -62,13 +62,13 @@
 <div class="main-view">
     <div style="text-align: center;">
         <div style="font-size: 50px; margin-bottom: 20px; opacity: 0.3;">🖥️</div>
-        <div style="font-weight: 500;">新纪录将自动强制置顶显示</div>
+        <div style="font-weight: 500;">审阅窗口焦点锁定中...</div>
     </div>
 </div>
 
 <div class="sidebar-wrapper">
     <div class="sidebar">
-        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v4.9.9</h3></div>
+        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v5.0.0</h3></div>
         <div class="sidebar-content">
             <div class="stat-container">
                 <div class="stat-box">
@@ -85,7 +85,7 @@
             </div>
 
             <div id="reviewOverlay">
-                <div style="color: #818cf8; font-size: 11px; margin-bottom: 20px;">点击按钮强制置顶下一条</div>
+                <div style="color: #818cf8; font-size: 11px; margin-bottom: 20px;">点击下方按钮，窗口将自动跳至最前</div>
                 <div class="btn-group">
                     <button class="action-btn btn-mark" id="markBtn">🚩 标记并下一条</button>
                     <button class="action-btn btn-next" id="nextBtn">直接下一条</button>
@@ -160,35 +160,45 @@
         document.getElementById('progressBar').style.width = (links.length > 0 ? (currentIndex / links.length) * 100 : 0) + "%";
     }
 
+    // --- 核心修复函数：参照 v4.9.2 经典补丁 ---
     function openNext() {
         if (!isRunning) return;
         
-        if (entryTime && currentIndex > 0) {
-            const lastIdx = currentIndex - 1;
-            links[lastIdx].duration += Math.round((Date.now() - entryTime) / 1000);
-            rawData[links[lastIdx].originalIdx]["审阅时长"] = links[lastIdx].duration + "秒";
-        }
-
-        if (currentIndex >= links.length) { stopReview(); return; }
+        // 1. 计时逻辑后置处理，优先处理窗口打开
+        const durationIdx = currentIndex - 1;
         
+        if (currentIndex >= links.length) { stopReview(); return; }
         const url = links[currentIndex].url;
         const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0`;
         
-        // --- 终极置顶策略：销毁重建 ---
+        // 2. 关键：先尝试聚焦，再执行 URL 切换
         if (currentPopup && !currentPopup.closed) {
-            currentPopup.close(); // 强制关闭当前窗口
+            currentPopup.focus(); // 第一次尝试唤醒
+            currentPopup.location.replace(url);
+        } else {
+            currentPopup = window.open(url, "ReviewWindow", features);
         }
+
+        // 3. 仿照 v4.9.2 的黄金延迟补丁：第二次和第三次强行聚焦
+        setTimeout(() => {
+            if (currentPopup && !currentPopup.closed) {
+                currentPopup.focus();
+            }
+        }, 150);
         
-        // 瞬间重新打开新窗口，操作系统会自动将其排在最前
-        currentPopup = window.open(url, "ReviewWindow", features);
+        setTimeout(() => {
+            if (currentPopup && !currentPopup.closed) {
+                currentPopup.focus();
+            }
+        }, 450);
+
+        // 4. 后置处理数据记录
+        if (entryTime && durationIdx >= 0) {
+            links[durationIdx].duration += Math.round((Date.now() - entryTime) / 1000);
+            rawData[links[durationIdx].originalIdx]["审阅时长"] = links[durationIdx].duration + "秒";
+        }
 
         localStorage.setItem('progress_' + originalSourceFileName, currentIndex);
-        
-        // 辅助聚焦
-        if (currentPopup) {
-            currentPopup.focus();
-        }
-
         entryTime = Date.now();
         currentIndex++;
         renderTable();
@@ -227,6 +237,7 @@
 
     document.addEventListener('click', (e) => {
         if (!isRunning) return;
+        // 关键：确保点击动作直接触发 openNext，不经过中间函数转发
         if (e.target.closest('#markBtn')) { markAndNext(); return; }
         if (e.target.closest('#stopBtn')) { stopReview(); return; }
         if (e.target.closest('.sidebar')) return; 
