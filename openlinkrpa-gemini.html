@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v5.0.8</title>
+    <title>网页审阅工具 v4.9.6</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #4f46e5; --danger: #ef4444; --sidebar-width: 400px; }
@@ -16,8 +16,7 @@
         .sidebar-header { padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; flex-shrink: 0; }
         .sidebar-content { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
 
-        /* 统计卡片样式 - 完全复刻 v4.9.6 */
-        .stat-container { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; position: relative; z-index: 10; }
+        .stat-container { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
         .stat-box { display: flex; gap: 10px; justify-content: space-between; }
         .stat-card { flex: 1; text-align: center; background: #f8fafc; padding: 12px 5px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .stat-label { font-size: 11px; color: #64748b; margin-bottom: 6px; font-weight: 500; }
@@ -27,14 +26,10 @@
         .progress-wrapper { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 12px; overflow: hidden; }
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
-        /* 唯一改动点：遮罩层高度缩减，露出统计卡片 */
         #reviewOverlay { 
             display: none; 
             position: absolute; 
-            left: 0; 
-            top: 155px; /* 这里做了微调，其余完全复刻 */
-            right: 0;
-            bottom: 0; 
+            left: 0; top: 0; right: 0; bottom: 0; 
             background: rgba(15, 23, 42, 0.96); 
             z-index: 2000; 
             flex-direction: column; 
@@ -63,19 +58,19 @@
 
 <div class="main-view">
     <div style="text-align: center;">
-        <div style="font-size: 50px; margin-bottom: 20px; opacity: 0.3;">📦</div>
-        <div style="font-weight: 500;">v4.9.6 完全复刻版 (仅调整遮罩高度)</div>
+        <div style="font-size: 50px; margin-bottom: 20px; opacity: 0.3;">📋</div>
+        <div style="font-weight: 500;">正在加载审阅环境...</div>
     </div>
 </div>
 
 <div class="sidebar-wrapper">
     <div class="sidebar">
-        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅 v5.0.8</h3></div>
+        <div class="sidebar-header"><h3 style="margin: 0; font-size: 18px;">网页审阅工具 v4.9.6</h3></div>
         <div class="sidebar-content">
             <div class="stat-container">
                 <div class="stat-box">
                     <div class="stat-card">
-                        <span class="stat-label">进度</span>
+                        <span class="stat-label">当前进度</span>
                         <div class="stat-num num-blue"><span id="currentProgNum">0</span>/<span id="totalNum">0</span></div>
                     </div>
                     <div class="stat-card">
@@ -88,7 +83,7 @@
 
             <div id="reviewOverlay">
                 <div class="btn-group">
-                    <button class="action-btn btn-mark" id="markBtn">🚩 标记并下一条</button>
+                    <button class="action-btn btn-mark" id="markBtn">🚩 标记此记录</button>
                     <button class="action-btn btn-next" id="nextBtn">直接下一条</button>
                     <button class="action-btn btn-stop" id="stopBtn">中止并保存</button>
                 </div>
@@ -96,11 +91,11 @@
 
             <div id="setupArea">
                 <div id="uploadZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
-                    <div style="margin-bottom: 6px;"><span id="fileName">上传 Excel 文件</span></div>
+                    <div style="margin-bottom: 6px;"><span id="fileName">点击上传原始 Excel 文件</span></div>
                     <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
                 </div>
-                <button id="startBtn" disabled>请上传文件</button>
-                <button id="downloadBtn">📥 下载标记结果</button>
+                <button id="startBtn" disabled>请先上传文件</button>
+                <button id="downloadBtn">📥 下载审阅结果</button>
             </div>
             <div class="list-container"><table id="urlTable"></table></div>
         </div>
@@ -108,7 +103,6 @@
 </div>
 
 <script>
-    // 以下脚本完全复刻 v4.9.6 逻辑
     let rawData = [], links = [], currentIndex = 0;
     let isRunning = false, currentPopup = null;
     let originalSourceFileName = "";
@@ -175,16 +169,16 @@
         document.getElementById('downloadBtn').style.display = 'block';
     }
 
-    function markAndNext() {
+    function markRecord() {
         const idx = currentIndex - 1;
         if(idx >= 0) {
             links[idx].marked = true;
             rawData[links[idx].originalIdx]["审阅结果"] = "🚩标记记录";
-            openNext(); // 自动进入下一条
+            renderTable();
         }
     }
 
-    document.getElementById('markBtn').onclick = markAndNext;
+    document.getElementById('markBtn').onclick = markRecord;
     document.getElementById('nextBtn').onclick = openNext;
     document.getElementById('stopBtn').onclick = stopReview;
     document.getElementById('startBtn').onclick = startReview;
@@ -195,8 +189,7 @@
         const ws = XLSX.utils.json_to_sheet(rawData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "结果");
-        // 文件名规范：标记结果-源文件名
-        XLSX.writeFile(wb, "标记结果-" + originalSourceFileName);
+        XLSX.writeFile(wb, "审阅结果_" + originalSourceFileName);
     };
 </script>
 </body>
