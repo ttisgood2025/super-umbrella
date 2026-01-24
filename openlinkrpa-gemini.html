@@ -2,25 +2,30 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>网页审阅工具 v4.9.1</title>
+    <title>网页审阅工具 v4.9.2</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #4f46e5; --danger: #ef4444; --sidebar-width: 400px; }
         body { font-family: 'PingFang SC', system-ui, sans-serif; background-color: #f8fafc; margin: 0; display: flex; height: 100vh; overflow: hidden; cursor: default; }
+        
         .main-view { flex-grow: 1; display: flex; align-items: center; justify-content: center; color: #cbd5e1; position: relative; }
         .sidebar { width: var(--sidebar-width); height: 100%; background: white; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; position: relative; z-index: 100; }
         .sidebar-header { padding: 20px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; }
         .sidebar-content { padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
 
-        /* 统计卡片 */
+        /* --- 优化：统计卡片完全对称 --- */
         .stat-container { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; position: relative; z-index: 500; }
         .stat-box { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .stat-card { text-align: center; background: #f8fafc; padding: 10px; border-radius: 8px; }
-        .stat-num { font-size: 24px; font-weight: bold; color: var(--primary); }
+        .stat-card { text-align: center; background: #f8fafc; padding: 12px 5px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .stat-label { font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500; }
+        .stat-num { font-size: 24px; font-weight: bold; line-height: 1.2; }
+        .num-blue { color: var(--primary); }
+        .num-red { color: var(--danger); }
+        
         .progress-wrapper { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 10px; overflow: hidden; }
         #progressBar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
 
-        /* 上传区引导 */
+        /* 上传引导 */
         .upload-zone { border: 2.5px dashed #cbd5e1; border-radius: 12px; padding: 30px 15px; text-align: center; cursor: pointer; margin-bottom: 12px; transition: all 0.4s; background: #fff; }
         .upload-pulse { animation: pulse-indigo-glow 2.5s infinite; border-color: var(--primary); }
         @keyframes pulse-indigo-glow { 0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.1); } 50% { box-shadow: 0 0 25px rgba(79, 70, 229, 0.25); background-color: rgba(79, 70, 229, 0.08); } 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.1); } }
@@ -28,7 +33,7 @@
         .sparkle { display: inline-block; font-size: 20px; animation: sparkle-blink 1.2s infinite ease-in-out; }
         @keyframes sparkle-blink { 0%, 100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }
 
-        #startBtn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #startBtn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; }
         #downloadBtn { width: 100%; display: none; background: #10b981; color: white; margin-top: 10px; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
         .list-container { flex-grow: 1; overflow-y: auto; margin-top: 10px; }
@@ -43,8 +48,6 @@
         .btn-next { background: white; color: #1e293b; }
         .btn-mark { background: var(--danger); color: white; }
         .btn-stop { background: transparent; color: #64748b; border: 1px solid #475569; margin-top: 10px; }
-        
-        body.reviewing { cursor: pointer; }
     </style>
 </head>
 <body id="mainBody">
@@ -53,17 +56,22 @@
     <div style="text-align: center;">
         <div style="font-size: 48px; margin-bottom: 20px;">🖥️</div>
         <div>审阅窗口在此弹出</div>
-        <div id="globalHint" style="margin-top: 10px; font-size: 12px; opacity: 0;">(当前模式：点击屏幕任意位置切换下一条)</div>
     </div>
 </div>
 
 <div class="sidebar">
-    <div class="sidebar-header"><h3 style="margin: 0;">网页审阅 v4.9.1</h3></div>
+    <div class="sidebar-header"><h3 style="margin: 0;">网页审阅 v4.9.2</h3></div>
     <div class="sidebar-content">
         <div class="stat-container">
             <div class="stat-box">
-                <div class="stat-card"><span style="font-size:11px;color:#64748b;">进度</span><div><span class="stat-num" id="currentProgNum">0</span>/<span id="totalNum">0</span></div></div>
-                <div class="stat-card"><span style="font-size:11px;color:#64748b;">已标记</span><span class="stat-num" id="markedNum" style="color:var(--danger)">0</span></div>
+                <div class="stat-card">
+                    <span class="stat-label">进度</span>
+                    <div class="stat-num num-blue"><span id="currentProgNum">0</span>/<span id="totalNum">0</span></div>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">已标记</span>
+                    <span class="stat-num num-red" id="markedNum">0</span>
+                </div>
             </div>
             <div class="progress-wrapper"><div id="progressBar"></div></div>
         </div>
@@ -73,7 +81,7 @@
                 <div style="margin-bottom: 8px;"><span class="sparkle">✨</span><span id="fileName">上传 Excel 自动重排</span><span class="sparkle" style="animation-delay: 0.6s;">✨</span></div>
                 <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
             </div>
-            <button id="startBtn" style="width:100%" disabled>请上传excel文件 ⏫</button>
+            <button id="startBtn" disabled>请上传excel文件 ⏫</button>
             <button id="downloadBtn">📥 下载标记结果</button>
         </div>
 
@@ -94,7 +102,7 @@
     let rawData = [], links = [], currentIndex = 0;
     let isRunning = false, currentPopup = null;
     let originalSourceFileName = "result.xlsx";
-    let entryTime = null; // 用于计时
+    let entryTime = null;
 
     document.getElementById('fileInput').onchange = function(e) {
         const file = e.target.files[0]; if(!file) return;
@@ -108,13 +116,9 @@
         reader.onload = function(evt) {
             const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const json = XLSX.utils.sheet_to_json(sheet);
-            
-            // 预设数据结构：增加“审阅时长”列
-            rawData = json.map(row => ({ "序号": "", "审阅结果": "", "审阅时长": "", ...row }));
+            rawData = XLSX.utils.sheet_to_json(sheet).map(row => ({ "序号": "", "审阅结果": "", "审阅时长": "", ...row }));
             let urlKey = Object.keys(rawData[0]).find(k => String(rawData[0][k]).toLowerCase().startsWith('http'));
             links = shuffleByPlatform(rawData.map((row, idx) => ({ url: row[urlKey], marked: false, originalIdx: idx, duration: 0 })));
-            
             document.getElementById('totalNum').innerText = links.length;
             document.getElementById('startBtn').innerText = "🚀 开始顺序审阅";
             document.getElementById('startBtn').disabled = false;
@@ -144,28 +148,29 @@
         document.getElementById('progressBar').style.width = (links.length > 0 ? (currentIndex / links.length) * 100 : 0) + "%";
     }
 
+    // 修复：强制新窗口置顶
     function openNext() {
         if (!isRunning) return;
-
-        // 记录上一条的审阅时长
         if (entryTime && currentIndex > 0) {
             const lastIdx = currentIndex - 1;
-            const timeDiff = Math.round((Date.now() - entryTime) / 1000);
-            links[lastIdx].duration += timeDiff;
+            links[lastIdx].duration += Math.round((Date.now() - entryTime) / 1000);
             rawData[links[lastIdx].originalIdx]["审阅时长"] = links[lastIdx].duration + "秒";
         }
-
         if (currentIndex >= links.length) { stopReview(); return; }
         
         const url = links[currentIndex].url;
         const features = `width=${window.screen.availWidth - 420},height=${window.screen.availHeight},top=0,left=0`;
+        
         if (currentPopup && !currentPopup.closed) {
             currentPopup.location.replace(url);
         } else {
             currentPopup = window.open(url, "ReviewWindow", features);
         }
 
-        entryTime = Date.now(); // 开始新条目计时
+        // 核心修复逻辑：延迟后强制聚焦，确保窗口置顶
+        setTimeout(() => { if(currentPopup) currentPopup.focus(); }, 150);
+
+        entryTime = Date.now();
         currentIndex++;
         renderTable();
         const row = document.getElementById(`row-${currentIndex-1}`);
@@ -175,26 +180,18 @@
     function startReview() {
         isRunning = true;
         document.getElementById('reviewOverlay').style.display = 'flex';
-        document.getElementById('mainBody').classList.add('reviewing');
-        document.getElementById('globalHint').style.opacity = '1';
         document.getElementById('startBtn').disabled = true;
         openNext();
     }
 
     function stopReview() {
-        // 停止时也要计算最后一条的时长
         if (entryTime && currentIndex > 0) {
-            const lastIdx = currentIndex - 1;
-            const timeDiff = Math.round((Date.now() - entryTime) / 1000);
-            links[lastIdx].duration += timeDiff;
-            rawData[links[lastIdx].originalIdx]["审阅时长"] = links[lastIdx].duration + "秒";
-            entryTime = null;
+            links[currentIndex - 1].duration += Math.round((Date.now() - entryTime) / 1000);
+            rawData[links[currentIndex - 1].originalIdx]["审阅时长"] = links[currentIndex - 1].duration + "秒";
         }
         isRunning = false;
         if (currentPopup && !currentPopup.closed) { currentPopup.close(); currentPopup = null; }
         document.getElementById('reviewOverlay').style.display = 'none';
-        document.getElementById('mainBody').classList.remove('reviewing');
-        document.getElementById('globalHint').style.opacity = '0';
         document.getElementById('startBtn').disabled = false;
         document.getElementById('startBtn').innerText = currentIndex >= links.length ? "重新审阅" : "继续审阅";
         document.getElementById('downloadBtn').style.display = 'block';
@@ -209,7 +206,7 @@
         }
     }
 
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', (e) => {
         if (!isRunning) return;
         if (e.target.closest('#markBtn')) { markAndNext(); return; }
         if (e.target.closest('#stopBtn')) { stopReview(); return; }
@@ -222,15 +219,8 @@
 
     document.getElementById('downloadBtn').onclick = () => {
         const finalData = rawData.map((row, index) => {
-            const formattedRow = {};
-            formattedRow["序号"] = index + 1;
-            formattedRow["审阅结果"] = row["审阅结果"] || "";
-            formattedRow["审阅时长"] = row["审阅时长"] || "0秒"; // 第3列
-            Object.keys(row).forEach(key => {
-                if (!["序号", "审阅结果", "审阅时长"].includes(key)) {
-                    formattedRow[key] = row[key];
-                }
-            });
+            const formattedRow = { "序号": index + 1, "审阅结果": row["审阅结果"] || "", "审阅时长": row["审阅时长"] || "0秒" };
+            Object.keys(row).forEach(key => { if (!["序号", "审阅结果", "审阅时长"].includes(key)) formattedRow[key] = row[key]; });
             return formattedRow;
         });
         const ws = XLSX.utils.json_to_sheet(finalData);
